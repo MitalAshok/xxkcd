@@ -73,13 +73,19 @@ class xkcd(object):
         if cached is not None:
             cached = cached()
             if cached is not None:
+                if keep_alive:
+                    cls._keep_alive[comic] = cached
                 return cached
         self = super(xkcd, cls).__new__(cls)
-        self.comic = comic
+        self._comic = comic
         cls._cache[comic] = weakref.ref(self)
         if keep_alive:
             cls._keep_alive[comic] = self
         return self
+
+    @property
+    def comic(self):
+        return self._comic
 
     @CachedProperty
     def _raw_json(self):
@@ -240,7 +246,7 @@ class xkcd(object):
         self._keep_alive.pop(self.comic, None)
 
     @property
-    def explainxkcd(self):
+    def explain_xkcd(self):
         """
         :return: The explain xkcd wiki link for this comic
         :rtype: str
