@@ -1,0 +1,1 @@
+from .xkcd import xkcd
