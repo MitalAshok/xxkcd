@@ -6,6 +6,8 @@ import json
 import datetime
 import random
 import functools
+import posixpath
+import multiprocessing
 
 from objecttools import ThreadedCachedProperty
 
@@ -43,6 +45,16 @@ def _decode(s):
             return unescape(s)
     return unescape(s)
 
+def _load_one(comic):
+    """
+    Cache a comic so that it won't make HTTP requests and rely on the cache
+
+    :param comic: The comic to cache. Consider using `xkcd.load_all()`
+    :type comic: Union[int, xkcd]
+    :return: None
+    """
+    xkcd(comic, True).json
+
 # Python 2 and Python 3.6+ allow bytes JSON
 _JSON_BYTES = sys.version_info < (3,) or sys.version_info >= (3, 6)
 
@@ -65,6 +77,10 @@ class xkcd(object):
         :rtype: xkcd
         :raises TypeError: Non-int given as comic
         """
+        if isinstance(comic, cls):
+            if keep_alive:
+                cls._keep_alive[comic.comic] = comic
+            return comic
         if comic is not None:
             try:
                 comic = int(comic)
@@ -147,7 +163,7 @@ class xkcd(object):
         elif n >= 1608:
             n += 2
         other_json = self._raw_json.copy()
-        if n < self.latest() - 3:
+        if n is not None and n < self.latest() - 3:
             other_json['transcript'] = _decode(xkcd(n)._raw_json['transcript'])
         else:
             other_json['transcript'] = _decode(other_json['transcript'])
@@ -231,6 +247,18 @@ class xkcd(object):
             with urlopen(self.img) as http:
                 for i in iter(functools.partial(http.read, chunk_size), b''):
                     file.write(i)
+
+    @property
+    def image_name(self):
+        """Suggested name for the image file"""
+        if not self.img:
+            raise AttributeError('Comic {} does not have an image!'.format(self))
+        return posixpath.basename(self.img)
+
+    @property
+    def image_ext(self):
+        """File extension of image file. Usually '.jpg'. '' if no extension."""
+        return posixpath.splitext(self.image_name)[1]
 
     @property
     def title(self):
@@ -338,6 +366,27 @@ class xkcd(object):
         if self.comic == 1:
             return self
         return type(self)(self.comic - 1)
+
+    @classmethod
+    def load_all(cls, multiprocessed=False):
+        """
+        Load all the comics into the cache. Note: Takes a lot of time.
+
+        :param multiprocessed: Use multiprocessing.Pool instead of
+            running in sequence
+        :return: None
+        """
+        xkcd(keep_alive=True).json
+        if multiprocessed:
+            pool = multiprocessing.Pool(4)
+            pool.map(_load_one, range(1, cls.latest() + 1))
+            pool.close()
+            pool.join()
+        else:
+            for n in range(1, cls.latest() + 1):
+                xkcd(n, keep_alive=True).json
+
+    load_one = staticmethod(_load_one)
 
     @staticmethod
     def antigravity():
