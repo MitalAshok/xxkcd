@@ -1,4 +1,4 @@
 """An (unofficial) Python wrapper around xkcd APIs"""
 
-from .xkcd import xkcd
-from .what_if import WhatIf
+from xxkcd.xkcd import xkcd
+from xxkcd.what_if import WhatIf

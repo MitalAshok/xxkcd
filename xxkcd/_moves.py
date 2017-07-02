@@ -13,6 +13,11 @@ except ImportError:
 
     MappingProxyType = dict.copy
 
+try:
+    from html import unescape  # Python 3.4+
+except ImportError:
+    unescape = HTMLParser().unescape
+
 text_type = type(u'')
 binary_type = type(b'')
 

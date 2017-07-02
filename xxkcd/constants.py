@@ -4,7 +4,7 @@ INSECURE_PROTOCOL = 'http:'
 class xkcd(object):
     base = SECURE_PROTOCOL + '//xkcd.com'
     latest = base
-    for_comic = (base + '/{number}').format
+    for_comic = (base + '/{number}/').format
     class json(object):
         base = SECURE_PROTOCOL + '//xkcd.com'
         _suffix = '/info.0.json'
@@ -19,7 +19,11 @@ class xkcd(object):
     class mobile(object):
         base = SECURE_PROTOCOL + '//m.xkcd.com'
         latest = base
-        for_comic = (base + '/{number}').format
+        for_comic = (base + '/{number}/').format
+    class images(object):
+        base = SECURE_PROTOCOL + '//imgs.xkcd.com/comics'
+        for_image = (base + '/{image}').format
+        blank = base + '/'
 
 class Explainxkcd(object):
     base = INSECURE_PROTOCOL + '//www.explainxkcd.com'

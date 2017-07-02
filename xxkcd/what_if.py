@@ -5,11 +5,13 @@ import random
 
 from objecttools import ThreadedCachedProperty
 
-from . import constants
-from ._moves import urlopen, MappingProxyType
-from ._html_parsing import ParseToTree
+from xxkcd import constants
+from xxkcd._moves import urlopen, MappingProxyType
+from xxkcd._html_parsing import ParseToTree
 
 ArchiveEntry = collections.namedtuple('ArchiveEntry', ('image', 'title', 'date'))
+
+has_unicode = type(u'') is type('')
 
 class Archive(object):
     _archive = None
@@ -29,9 +31,11 @@ class Archive(object):
         i = 0
         for i, archive_entry in enumerate(tree.find_all(Archive._is_archive_entry), 1):
             c = archive_entry.element_children
+            image = constants.WhatIf.base + c[0].first_element_child.attr_dict['src']
+            if has_unicode:
+                image = image.encode('ascii')
             archive[i] = ArchiveEntry(
-                image=constants.WhatIf.base +
-                      c[0].first_element_child.attr_dict['src'],
+                image=image,
                 title=c[1].first_element_child.children[0].children,
                 date=self._parse_date(c[2].children[0].children)
             )
@@ -135,20 +139,37 @@ class WhatIf(object):
         return constants.WhatIf.for_article(number=self.article)
 
     @ThreadedCachedProperty
-    def _article_tree(self):
-        parser = ParseToTree()
+    def full_page(self):
         with urlopen(self.url) as http:
-            html = http.read()
-        tree = parser(html)
+            return http.read()
+
+    full_page.can_delete = True
+
+    @ThreadedCachedProperty
+    def _article_tree(self):
+        tree = ParseToTree()(self.full_page)
         return tree.find(lambda node: node.tag.lower() == 'article' and node.cls == 'entry')
+
+    _article_tree.can_delete = True
 
     @ThreadedCachedProperty
     def question(self):
         return self._article_tree.get_element_by_id('question').children[0].children
 
+    question.can_delete = True
+
     @ThreadedCachedProperty
     def attribute(self):
         return self._article_tree.get_element_by_id('attribute').children[0].children
 
+    attribute.can_delete = True
+
     def body(self):
         return NotImplemented
+
+    def delete(self):
+        del self.full_page
+        del self._article_tree
+        del self.question
+        self._keep_alive.pop(self.article, None)
+        self._cache.pop(self.article, None)

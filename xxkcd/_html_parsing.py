@@ -1,6 +1,6 @@
 import collections
 
-from ._moves import HTMLParser, text_type
+from xxkcd._moves import HTMLParser, text_type
 
 
 class HTMLNode(collections.namedtuple('HTMLNode', ('tag', 'attrs', 'children', 'parent'))):

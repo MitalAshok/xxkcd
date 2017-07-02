@@ -5,11 +5,12 @@ import weakref
 import json
 import datetime
 import random
+import functools
 
 from objecttools import ThreadedCachedProperty
 
-from ._moves import urlopen, reload
-from . import constants
+from xxkcd._moves import urlopen, reload, unescape
+from xxkcd import constants
 
 
 _404_mock = {
@@ -39,9 +40,11 @@ def _decode(s):
         try:
             s = bytearray(map(ord, s)).decode('utf-8')
         except (ValueError, UnicodeDecodeError):
-            return s
-    return s
+            return unescape(s)
+    return unescape(s)
 
+# Python 2 and Python 3.6+ allow bytes JSON
+_JSON_BYTES = sys.version_info < (3,) or sys.version_info >= (3, 6)
 
 class xkcd(object):
     """Interface with the xkcd JSON API"""
@@ -97,7 +100,9 @@ class xkcd(object):
         else:
             url = constants.xkcd.json.for_comic(number=self.comic)
         with urlopen(url) as http:
-            return json.load(http)
+            if _JSON_BYTES:
+                return json.load(http)
+            return json.loads(http.read().decode('utf-8'))
 
     _raw_json.can_delete = True
 
@@ -153,6 +158,8 @@ class xkcd(object):
                 other_json[int_key] = int(other_json[int_key])
             else:
                 other_json[int_key] = None
+        if other_json['img'] == constants.xkcd.images.blank:
+            other_json['img'] = ''
         return other_json
 
     json.can_delete = True
@@ -202,6 +209,29 @@ class xkcd(object):
         with urlopen(self.img) as http:
             return http.read()
 
+    def stream_image(self, file=None, chunk_size=2048):
+        """
+        Stream the raw image file from the link and write to file.
+
+        :param file: File-like to write to, or None to yield chunks
+        :type file: Optional[BinaryIO]
+        :param chunk_size: Size of chunks
+        :type chunk_size: int
+        :return: generator or None
+        """
+        if not self.img:
+            raise ValueError('Comic {} does not have an image!'.format(self))
+        if file is None:
+            def generator():
+                with urlopen(self.img) as http:
+                    for i in iter(functools.partial(http.read, chunk_size), b''):
+                        yield i
+            return generator()
+        else:
+            with urlopen(self.img) as http:
+                for i in iter(functools.partial(http.read, chunk_size), b''):
+                    file.write(i)
+
     @property
     def title(self):
         return self.json['title']
@@ -244,6 +274,7 @@ class xkcd(object):
         del self._raw_json
         del self.json
         self._keep_alive.pop(self.comic, None)
+        self._cache.pop(self.comic, None)
 
     @property
     def explain_xkcd(self):
@@ -273,7 +304,7 @@ class xkcd(object):
         """
         if self.comic is None:
             return constants.xkcd.mobile.latest
-        return constants.xkcd.for_comic(number=self.comic)
+        return constants.xkcd.mobile.for_comic(number=self.comic)
 
     @property
     def num(self):

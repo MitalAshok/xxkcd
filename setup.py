@@ -60,7 +60,7 @@ setup_args = dict(
     extras_require={},
     entry_points={},
 
-    test_suite='setup.test_suite'
+    test_suite='tests'
 )
 
 
