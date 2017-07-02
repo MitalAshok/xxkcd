@@ -4,12 +4,12 @@ import sys
 import weakref
 import json
 import datetime
-from random import randint
+import random
 
-from objecttools import CachedProperty
+from objecttools import ThreadedCachedProperty
 
-from xxkcd._moves import urlopen, reload
-from xxkcd import constants
+from ._moves import urlopen, reload
+from . import constants
 
 
 _404_mock = {
@@ -45,7 +45,7 @@ def _decode(s):
 
 class xkcd(object):
     """Interface with the xkcd JSON API"""
-    __slots__ = ('comic', '__weakref__', '__dict__')
+    __slots__ = ('_comic', '__weakref__', '__dict__')
 
     _cache = {}
     _keep_alive = {}
@@ -87,7 +87,7 @@ class xkcd(object):
     def comic(self):
         return self._comic
 
-    @CachedProperty
+    @ThreadedCachedProperty
     def _raw_json(self):
         """Raw JSON with a possibly incorrect transcript and alt text"""
         if self.comic == 404:
@@ -101,7 +101,7 @@ class xkcd(object):
 
     _raw_json.can_delete = True
 
-    @CachedProperty
+    @ThreadedCachedProperty
     def json(self):
         """
         JSON with the correct transcript and encoded properly.
@@ -199,8 +199,8 @@ class xkcd(object):
         """
         if not self.img:
             raise ValueError('Comic {} does not have an image!'.format(self))
-        with urlopen(self.img) as f:
-            return f.read()
+        with urlopen(self.img) as http:
+            return http.read()
 
     @property
     def title(self):
@@ -232,7 +232,7 @@ class xkcd(object):
         :return: A random comic
         :rtype: xkcd
         """
-        return cls(randint(1, cls.latest()))
+        return cls(random.randint(1, cls.latest()))
 
     def delete(self):
         """
@@ -314,8 +314,7 @@ class xkcd(object):
         antigravity = sys.modules.get('antigravity')
         if antigravity is not None:
             return reload(antigravity)
-        else:
-            import antigravity
+        import antigravity
         return antigravity
 
     def __eq__(self, other):

@@ -28,3 +28,6 @@ class Explainxkcd(object):
 
 class WhatIf(object):
     base = SECURE_PROTOCOL + '//what-if.xkcd.com'
+    archive = base + '/archive/'
+    latest = base
+    for_article = (base + '/{number}/').format

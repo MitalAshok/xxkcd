@@ -50,7 +50,7 @@ setup_args = dict(
     ],
     platforms=['any'],
 
-    keywords=['xkcd', 'api'],
+    keywords=['xkcd', 'api', 'wrapper', 'what-if'],
 
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
 
