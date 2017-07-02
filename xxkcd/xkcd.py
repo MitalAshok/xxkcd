@@ -311,8 +311,8 @@ class xkcd(object):
         :rtype: str
         """
         if self.comic is None:
-            return constants.Explainxkcd.latest
-        return constants.Explainxkcd.for_comic(number=self.comic)
+            return constants.explain_xkcd.latest
+        return constants.explain_xkcd.for_comic(number=self.comic)
 
     @property
     def url(self):

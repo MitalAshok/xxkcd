@@ -52,7 +52,7 @@ setup_args = dict(
 
     keywords=['xkcd', 'api', 'wrapper', 'what-if'],
 
-    packages=find_packages(exclude=['contrib', 'docs', 'tests']),
+    packages=find_packages(exclude=['contrib', 'docs', 'tests', 'examples']),
 
     install_requires=[
         'objecttools==0.0.3'

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import multiprocessing
+
 from xxkcd import xkcd
 
 
@@ -19,7 +21,10 @@ def download_image(n):
 def main():
     if not os.path.exists('images'):
         os.mkdir('images')
-    r = range(1, xkcd.latest() + 1)
+    if sys.version_info >= (3,):
+        r = range(1, xkcd.latest() + 1)
+    else:
+        r = xrange(1, xkcd.latest() + 1)
     pool = multiprocessing.Pool(4)
     pool.map(download_image, r)
     pool.close()

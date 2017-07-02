@@ -5,12 +5,11 @@ import sys
 
 
 def main():
-    xkcd.load_all(True)
-
-    for n in range(1, xkcd.latest() + 1):
-        if sys.version_info >= (3,):
+    if sys.version_info >= (3,):
+        for n in range(1, xkcd.latest() + 1):
             print(xkcd(n).title)
-        else:
+    else:
+        for n in xrange(1, xkcd.latest() + 1):
             print(xkcd(n).title.encode('utf-8'))
 
 

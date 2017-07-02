@@ -1,37 +1,63 @@
 SECURE_PROTOCOL = 'https:'
 INSECURE_PROTOCOL = 'http:'
 
-class xkcd(object):
+
+class Constantsxkcd(object):
     base = SECURE_PROTOCOL + '//xkcd.com'
+    with_subdomain = (SECURE_PROTOCOL + '//{subdomain}.xkcd.com').format
     latest = base
     for_comic = (base + '/{number}/').format
-    class json(object):
-        base = SECURE_PROTOCOL + '//xkcd.com'
-        _suffix = '/info.0.json'
-        latest = base + _suffix
-        for_comic = (base + '/{number}' + _suffix).format
-    # Or, alternatively, `http://c.xkcd.com/api-0/jsonp/comic/{number}`
-    class c(object):
-        base = SECURE_PROTOCOL + '//c.xkcd.com'
-        class whatif:
-            base = SECURE_PROTOCOL + '//c.xkcd.com/whatif'
-            news = base + '/news'
-    class mobile(object):
-        base = SECURE_PROTOCOL + '//m.xkcd.com'
-        latest = base
-        for_comic = (base + '/{number}/').format
-    class images(object):
-        base = SECURE_PROTOCOL + '//imgs.xkcd.com/comics'
-        for_image = (base + '/{image}').format
-        blank = base + '/'
 
-class Explainxkcd(object):
+
+class ConstantsxkcdJSON(object):
+    base = Constantsxkcd.base
+    _suffix = '/info.0.json'
+    latest = base + _suffix
+    for_comic = (base + '/{number}' + _suffix).format
+    # Or, alternatively, `http://c.xkcd.com/api-0/jsonp/comic/{number}`
+
+
+class ConstantsxkcdC(object):
+    base = Constantsxkcd.with_subdomain(subdomain='c')
+
+
+class ConstantsxkcdCWhatIf(object):
+    base = ConstantsxkcdC.base + '/whatif'
+    news = base + '/news'
+
+
+class ConstantsxkcdMobile(object):
+    base = Constantsxkcd.with_subdomain(subdomain='m')
+    latest = base
+    for_comic = (base + '/{number}/').format
+
+
+class ConstantsxkcdImages(object):
+    base = Constantsxkcd.with_subdomain(subdomain='imgs') + '/comics'
+    for_image = (base + '/{image}').format
+    blank = base + '/'
+
+
+class ConstantsExplainxkcd(object):
     base = INSECURE_PROTOCOL + '//www.explainxkcd.com'
     latest = base
     for_comic = (base + '/{number}').format
 
-class WhatIf(object):
-    base = SECURE_PROTOCOL + '//what-if.xkcd.com'
+
+class ConstantsWhatIf(object):
+    base = Constantsxkcd.with_subdomain(subdomain='what-if')
     archive = base + '/archive/'
     latest = base
     for_article = (base + '/{number}/').format
+
+
+xkcd = Constantsxkcd()
+xkcd.json = ConstantsxkcdJSON()
+xkcd.c = ConstantsxkcdC()
+xkcd.c.what_if = ConstantsxkcdCWhatIf()
+xkcd.mobile = ConstantsxkcdMobile()
+xkcd.images = ConstantsxkcdImages()
+
+explain_xkcd = ConstantsExplainxkcd()
+
+what_if = ConstantsWhatIf()

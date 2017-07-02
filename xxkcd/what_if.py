@@ -24,14 +24,14 @@ class Archive(object):
         if Archive._archive is not None:
             return Archive._archive
         parser = ParseToTree()
-        with urlopen(constants.WhatIf.archive) as http:
+        with urlopen(constants.what_if.archive) as http:
             data = http.read()
         tree = parser(data)
         archive = {}
         i = 0
         for i, archive_entry in enumerate(tree.find_all(Archive._is_archive_entry), 1):
             c = archive_entry.element_children
-            image = constants.WhatIf.base + c[0].first_element_child.attr_dict['src']
+            image = constants.what_if.base + c[0].first_element_child.attr_dict['src']
             if has_unicode:
                 image = image.encode('ascii')
             archive[i] = ArchiveEntry(
@@ -129,14 +129,14 @@ class WhatIf(object):
 
     @staticmethod
     def news():
-        with urlopen(constants.xkcd.c.whatif.news) as http:
+        with urlopen(constants.xkcd.c.what_if.news) as http:
             return http.read()
 
     @property
     def url(self):
         if self.article is None:
-            return constants.WhatIf.latest
-        return constants.WhatIf.for_article(number=self.article)
+            return constants.what_if.latest
+        return constants.what_if.for_article(number=self.article)
 
     @ThreadedCachedProperty
     def full_page(self):
