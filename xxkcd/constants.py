@@ -11,9 +11,9 @@ class Constantsxkcd(object):
 
 class ConstantsxkcdJSON(object):
     base = Constantsxkcd.base
-    _suffix = '/info.0.json'
-    latest = base + _suffix
-    for_comic = (base + '/{number}' + _suffix).format
+    suffix = '/info.0.json'
+    latest = base + suffix
+    for_comic = (base + '/{number}' + suffix).format
     # Or, alternatively, `http://c.xkcd.com/api-0/jsonp/comic/{number}`
 
 

@@ -58,6 +58,8 @@ def _load_one(comic):
 # Python 2 and Python 3.6+ allow bytes JSON
 _JSON_BYTES = sys.version_info < (3,) or sys.version_info >= (3, 6)
 
+has_unicode = type(u'') is type('')
+
 class xkcd(object):
     """Interface with the xkcd JSON API"""
     __slots__ = ('_comic', '__weakref__', '__dict__')
@@ -175,7 +177,10 @@ class xkcd(object):
             else:
                 other_json[int_key] = None
         if other_json['img'] == constants.xkcd.images.blank:
-            other_json['img'] = ''
+            other_json['img'] = u''
+        if has_unicode:
+            other_json['img'] = other_json['img'].encode('ascii')
+            other_json['link'] = other_json['link'].encode('ascii')
         return other_json
 
     json.can_delete = True
@@ -257,7 +262,7 @@ class xkcd(object):
 
     @property
     def image_ext(self):
-        """File extension of image file. Usually '.jpg'. '' if no extension."""
+        """File extension of image file. Usually '.png'. '' if no extension."""
         return posixpath.splitext(self.image_name)[1]
 
     @property

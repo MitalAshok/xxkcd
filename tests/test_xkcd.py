@@ -12,7 +12,9 @@ expect = {
     '259_trans': u"Narrator: MY HOBBY: DERAILING CLICHÉD EXCHANGES BY USING THE WRONG REPLIES\nMan 1: O RLY?\nMan 2: O RLY? I 'ARDLY KNOW 'ER!\n{{It's like they say, you gotta fight fire with clichés.}}",
     '124_trans': u'From the makers of the Blogosphere, Blogocube, and Blogodrome comes\nthe Blogofractal\n[[A large rectangle subdivided into rectangles in a fractal pattern, most with a phrase or word inside]]\n[[Mostly left to right from top-left corner]]\nTripMaster Monkey says\n118th Post!!\nWikiconstitution!\nOMG\nDeCSS\nCasemod your Boyfriend!!\nFLICKR\nThey\'re saying on Kos that\nhttp:\nslashdot.org\narticl\ntagCloud\nCory Doctorow is a little upset about copyright law.\nHey guys what if Google is evil?!?\nI\'ll sleep with you for a FreeIpods deal.\nFirstPsot!!\nSnakes on an I don\'t Even Care Anymore\nKiwiWiki\nCSS\nComments (0)\nBlogotesseract\n¡play games!\n[[RSS icon]]\nis AYB retro yet?\nGoogle Google Google Apple Google Goog\nCheney totally shot a dude!!!\nWatch this doddler get owned by a squirrel!!!\nDevelopers\nDevelopers\nDevelopers\nDevelopers\nI installed a Mac Mini inside ANOTHER Mac Mini!\nCheck out this vid of Jon Stewart\n9-11 <-> Trent Lott!\nWeb 7.1\nKryptonite™ locks vulnerable to "keys!"\nInteresting post!  Check out my blog, it has useful info on CARBON MONOXIDE LITIGATION\nFIREFLY!!\nHELP ME\nEngadget\nBoing Boing\nGizmodo\nMAKE Blog: DIY baby\nMy friend has a band!!\nJon released an exploit in the protocol for meeting girls.\nInternets!\nHoward Dean?\nSo I hear there\'s a hurricane.\nWe should elect this dude!\nGoogle Maps is da best!!\nModeration:  +1 Sassy\nRSS!\nA-list\n<3\nTrackable URL?\nI shot a man in Reno check it out on YouTube!\nHEY LOOK ROBOTS!\nNet Neutrality!\nFriends Only.\nDupe!\nAJAX?\nCOMPLY\nCowboy Neal\nBlogodrome\nHey look I got Linux running on my tonsils!\nLook alive, blogonauts!\nCafepress cockrings\nBOOBIES!!\nMIA\nA Beowulf Cluster... of BLOGS!!\nSPOILER ALERT\nDupe!\nYou have been eaten by a Grue.\nRuby on a monorail\nLesbians!\nDNF Released!\nSteampunk\nBLAG\nPONIES!\nXeni found some porn!\nIRONY\nLIARS!\nLinux on Rails!\nBlogocube\ndel.icio.us!\n404\no.O\nDon\'t slam the source when you close it.\n{{title text: Edward Tufte\'s \'The Visual Display of Quantitative Information\' is a fantastic book, and should be required reading for anyone in either the sciences or graphic design.}}',
     '353_alt': u"I wrote 20 short programs in Python yesterday.  It was wonderful.  Perl, I'm leaving you.",
-    '859_alt': u'Brains aside, I wonder how many poorly-written xkcd.com-parsing scripts will break on this title (or ;;"\'\'{<<[\' this mouseover text."'
+    '859_alt': u'Brains aside, I wonder how many poorly-written xkcd.com-parsing scripts will break on this title (or ;;"\'\'{<<[\' this mouseover text."',
+    '1723_link': 'http://meteorites.wustl.edu/check-list.htm'
+
 }
 
 class Testxkcd(unittest.TestCase):
@@ -35,5 +37,8 @@ class Testxkcd(unittest.TestCase):
     def test_alt_text(self):
         self.assertEqual(xkcd(353).alt, expect['353_alt'], 'Incorrect alt text')
         self.assertEqual(xkcd(859).alt, expect['859_alt'], 'Incorrect alt text')
+
+    def test_link(self):
+        self.assertEqual(xkcd(1723).link, expect['1723_link'], 'Incorrect link')
 
 

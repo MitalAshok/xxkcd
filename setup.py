@@ -55,7 +55,7 @@ setup_args = dict(
     packages=find_packages(exclude=['contrib', 'docs', 'tests', 'examples']),
 
     install_requires=[
-        'objecttools==0.0.3'
+        'objecttools>=0.0.4'
     ],
     extras_require={},
     entry_points={},
