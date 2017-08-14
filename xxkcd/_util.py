@@ -62,3 +62,5 @@ try:
     from functools import reduce
 except ImportError:
     reduce = builtins.reduce
+
+range = getattr(builtins, 'xrange', range)

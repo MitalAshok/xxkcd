@@ -11,7 +11,7 @@ import multiprocessing
 
 from objecttools import ThreadedCachedProperty
 
-from xxkcd._util import urlopen, reload, unescape, map, str_is_bytes, MappingProxyType
+from xxkcd._util import urlopen, reload, unescape, map, str_is_bytes, MappingProxyType, range
 from xxkcd import constants
 
 __all__ = ('xkcd',)
@@ -349,38 +349,12 @@ class xkcd(object):
     def __repr__(self):
         return '{type.__name__}({number})'.format(type=type(self), number=self.comic or '')
 
-    @property
-    def next(self):
-        """
-        Return the next comic. If is the latest comic, return the same comic
-
-        :return: Next comic
-        :rtype: xkcd
-        """
-        if self.comic is None:
-            return self
-        return type(self)(self.comic + 1)
-
-    @property
-    def previous(self):
-        """
-        Return the previous comic. If is xkcd(1), return self.
-
-        :return: Previous comic
-        :rtype: xkcd
-        """
-        if self.comic is None:
-            return type(self)(type(self).latest() - 1)
-        if self.comic == 1:
-            return self
-        return type(self)(self.comic - 1)
-
     @classmethod
     def load_all(cls, multiprocessed=False):
         """
         Load all the comics into the cache. Note: Takes a lot of time.
 
-        :param multiprocessed: Use multiprocessing.Pool instead of
+        :param bool multiprocessed: Use multiprocessing.Pool instead of
             running in sequence
         :return: None
         """
@@ -421,3 +395,58 @@ class xkcd(object):
         if eq is NotImplemented:
             return NotImplemented
         return not eq
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        """
+        Return the next comic. If is the latest comic, raise StopIteration
+
+        :return: Next comic
+        :rtype: xkcd
+        """
+        return self.__next__()
+
+    def back(self):
+        """
+        Return the previous comic. If is xkcd(1), raise StopIteration.
+
+        :return: Previous comic
+        :rtype: xkcd
+        """
+        if self.comic is None:
+            return type(self)(self.latest() - 1)
+        if self.comic == 1:
+            raise StopIteration
+        return type(self)(self.comic - 1)
+
+    def __next__(self):
+        if self.comic is None or self.comic == self.latest():
+            raise StopIteration
+        return type(self)(self.comic + 1)
+
+    def __reversed__(self):
+        if self.comic is None:
+            comic = self.latest()
+        else:
+            comic = self.comic
+        for i in range(comic - 1, 0, -1):
+            yield type(self)(i)
+
+    @classmethod
+    def range(cls, from_=1, to=None, step=1):
+        """
+        Returns an iterator over specified comics.
+
+        Use negative numbers to specify from the end.
+
+        :param int from_: The comic to start from. Defaults to the first.
+        :param Optional[int] to_: The comic to end by (exclusive). Defaults to last + 1.
+        :param int step: The step amount. Defaults to one.
+        :return: A range over the requested comics.
+        """
+        if to is None:
+            to = cls.latest() + 1
+
+        return range(from_, to, step)

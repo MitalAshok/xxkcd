@@ -6,7 +6,7 @@ import random
 from objecttools import ThreadedCachedProperty
 
 from xxkcd import constants
-from xxkcd._util import urlopen, MappingProxyType
+from xxkcd._util import urlopen, MappingProxyType, range
 from xxkcd._html_parsing import ParseToTree
 
 ArchiveEntry = collections.namedtuple('ArchiveEntry', ('image', 'title', 'date'))
@@ -200,3 +200,33 @@ class WhatIf(object):
         self.question
         self.attribute
         self.body
+
+    def next(self):
+        return self.__next__()
+
+    def back(self):
+        if self.article is None:
+            return type(self)(self.latest() - 1)
+        if self.article == 1:
+            raise StopIteration
+        return type(self)(self.article - 1)
+
+    def __next__(self):
+        if self.article is None or self.article == self.latest():
+            raise StopIteration
+        return type(self)(self.article + 1)
+
+    def __reversed__(self):
+        if self.article is None:
+            comic = self.latest()
+        else:
+            comic = self.article
+        for i in range(comic - 1, 0, -1):
+            yield type(self)(i)
+
+    @classmethod
+    def range(cls, from_=1, to=None, step=1):
+        if to is None:
+            to = cls.latest() + 1
+
+        return range(from_, to, step)

@@ -6,10 +6,10 @@ import sys
 
 def main():
     if sys.version_info >= (3,):
-        for n in range(1, xkcd.latest() + 1):
+        for n in xkcd.range():
             print(xkcd(n).title)
     else:
-        for n in xrange(1, xkcd.latest() + 1):
+        for n in xkcd.range():
             print(xkcd(n).title.encode('utf-8'))
 
 

@@ -21,12 +21,8 @@ def download_image(n):
 def main():
     if not os.path.exists('images'):
         os.mkdir('images')
-    if sys.version_info >= (3,):
-        r = range(1, xkcd.latest() + 1)
-    else:
-        r = xrange(1, xkcd.latest() + 1)
     pool = multiprocessing.Pool(4)
-    pool.map(download_image, r)
+    pool.map(download_image, xkcd.range())
     pool.close()
     pool.join()
 
