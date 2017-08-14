@@ -11,16 +11,16 @@ import multiprocessing
 
 from objecttools import ThreadedCachedProperty
 
-from xxkcd._util import urlopen, reload, unescape, map, str_is_bytes
+from xxkcd._util import urlopen, reload, unescape, map, str_is_bytes, MappingProxyType
 from xxkcd import constants
 
 __all__ = ('xkcd',)
 
-_404_mock = {
+_404_mock = MappingProxyType({
     'month': '4', 'num': 404, 'link': '', 'year': '2008', 'news': '',
     'safe_title': '404 not found', 'transcript': '', 'alt': '', 'img': '',
     'title': '404 - Not Found', 'day': '1'
-}
+})
 
 
 def _decode(s):
@@ -46,6 +46,7 @@ def _decode(s):
             return unescape(s)
     return unescape(s)
 
+
 def _load_one(comic):
     """
     Cache a comic so that it won't make HTTP requests and rely on the cache
@@ -58,6 +59,7 @@ def _load_one(comic):
 
 # Python 2 and Python 3.6+ allow bytes JSON
 _JSON_BYTES = sys.version_info < (3,) or sys.version_info >= (3, 6)
+
 
 class xkcd(object):
     """Interface with the xkcd JSON API"""
@@ -111,6 +113,8 @@ class xkcd(object):
     def _raw_json(self):
         """Raw JSON with a possibly incorrect transcript and alt text"""
         if self.comic == 404:
+            if MappingProxyType is dict:
+                return dict(_404_mock)
             return _404_mock
         if self.comic is None:
             url = constants.xkcd.json.latest
@@ -118,8 +122,8 @@ class xkcd(object):
             url = constants.xkcd.json.for_comic(number=self.comic)
         with urlopen(url) as http:
             if _JSON_BYTES:
-                return json.load(http)
-            return json.loads(http.read().decode('utf-8'))
+                return MappingProxyType(json.load(http))
+            return MappingProxyType(json.loads(http.read().decode('utf-8')))
 
     _raw_json.can_delete = True
 
@@ -180,7 +184,7 @@ class xkcd(object):
         if str_is_bytes:
             other_json['img'] = other_json['img'].encode('ascii')
             other_json['link'] = other_json['link'].encode('ascii')
-        return other_json
+        return MappingProxyType(other_json)
 
     json.can_delete = True
 
