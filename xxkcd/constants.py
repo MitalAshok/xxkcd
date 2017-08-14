@@ -1,3 +1,5 @@
+__all__ = ('xkcd', 'explain_xkcd', 'what_if')
+
 SECURE_PROTOCOL = 'https:'
 INSECURE_PROTOCOL = 'http:'
 

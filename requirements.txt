@@ -1,1 +1,1 @@
-objecttools>=0.0.4
+objecttools>=1.0.1

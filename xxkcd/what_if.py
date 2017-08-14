@@ -6,12 +6,15 @@ import random
 from objecttools import ThreadedCachedProperty
 
 from xxkcd import constants
-from xxkcd._moves import urlopen, MappingProxyType
+from xxkcd._util import urlopen, MappingProxyType
 from xxkcd._html_parsing import ParseToTree
 
 ArchiveEntry = collections.namedtuple('ArchiveEntry', ('image', 'title', 'date'))
+ArticlePart = collections.namedtuple('ArticlePart', ('type', 'value'))
+
 
 has_unicode = type(u'') is type('')
+
 
 class Archive(object):
     _archive = None
@@ -153,23 +156,47 @@ class WhatIf(object):
     _article_tree.can_delete = True
 
     @ThreadedCachedProperty
+    def _article_node(self):
+        return WhatIf()._article_tree.find(lambda a: a.cls == 'entry')
+
+    _article_node.can_delete = True
+
+    @ThreadedCachedProperty
     def question(self):
-        return self._article_tree.get_element_by_id('question').children[0].children
+        return str(self._article_tree.get_element_by_id('question').children[0])
 
     question.can_delete = True
 
     @ThreadedCachedProperty
     def attribute(self):
-        return self._article_tree.get_element_by_id('attribute').children[0].children
+        return str(
+            self._article_tree.get_element_by_id('attribute').children[0]
+        )
 
     attribute.can_delete = True
 
+    @ThreadedCachedProperty
     def body(self):
-        return NotImplemented
+        return str(self._article_node)
 
-    def delete(self):
+    body.can_delete = True
+
+    def delete(self, remove_cache=True):
         del self.full_page
         del self._article_tree
+        del self._article_node
         del self.question
-        self._keep_alive.pop(self.article, None)
-        self._cache.pop(self.article, None)
+        del self.attribute
+        del self.body
+        if remove_cache:
+            self._keep_alive.pop(self.article, None)
+            self._cache.pop(self.article, None)
+
+    def refresh(self):
+        self.delete(False)
+        self.full_page
+        self._article_tree
+        self._article_node
+        self.question
+        self.attribute
+        self.body

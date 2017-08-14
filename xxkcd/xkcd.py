@@ -11,9 +11,10 @@ import multiprocessing
 
 from objecttools import ThreadedCachedProperty
 
-from xxkcd._moves import urlopen, reload, unescape
+from xxkcd._util import urlopen, reload, unescape, map, str_is_bytes
 from xxkcd import constants
 
+__all__ = ('xkcd',)
 
 _404_mock = {
     'month': '4', 'num': 404, 'link': '', 'year': '2008', 'news': '',
@@ -57,8 +58,6 @@ def _load_one(comic):
 
 # Python 2 and Python 3.6+ allow bytes JSON
 _JSON_BYTES = sys.version_info < (3,) or sys.version_info >= (3, 6)
-
-has_unicode = type(u'') is type('')
 
 class xkcd(object):
     """Interface with the xkcd JSON API"""
@@ -178,7 +177,7 @@ class xkcd(object):
                 other_json[int_key] = None
         if other_json['img'] == constants.xkcd.images.blank:
             other_json['img'] = u''
-        if has_unicode:
+        if str_is_bytes:
             other_json['img'] = other_json['img'].encode('ascii')
             other_json['link'] = other_json['link'].encode('ascii')
         return other_json
