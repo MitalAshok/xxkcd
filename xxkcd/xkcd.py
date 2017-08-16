@@ -353,14 +353,24 @@ class xkcd(object):
         xkcd(keep_alive=True).json
         if multiprocessed:
             pool = multiprocessing.Pool(4)
-            pool.map(_load_one, range(1, cls.latest() + 1))
+            pool.map(_load_one, cls.range())
             pool.close()
             pool.join()
         else:
-            for n in range(1, cls.latest() + 1):
+            for n in cls.range():
                 xkcd(n, keep_alive=True).json
 
     load_one = staticmethod(_load_one)
+
+    @classmethod
+    def delete_all(cls):
+        xkcd().delete()
+        for n in cls.range():
+            xkcd(n).delete()
+
+    @classmethod
+    def delete_one(cls, comic):
+        xkcd(comic).delete()
 
     @staticmethod
     def antigravity():

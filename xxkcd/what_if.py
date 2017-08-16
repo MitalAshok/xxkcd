@@ -22,6 +22,12 @@ class Archive(object):
         'August', 'September', 'October', 'November', 'December'
     ]
 
+    @ThreadedCachedProperty
+    def _length(self):
+        return len(self.__get__(0, None))
+
+    _length.can_delete = True
+
     def __get__(self, instance, owner):
         if instance is None:
             return self
@@ -32,7 +38,6 @@ class Archive(object):
             data = http.read()
         tree = parser(data)
         archive = {}
-        i = 0
         for i, archive_entry in enumerate(tree.find_all(Archive._is_archive_entry), 1):
             c = archive_entry.element_children
             image = constants.what_if.base + c[0].first_element_child.attr_dict['src']
@@ -43,12 +48,15 @@ class Archive(object):
                 title=c[1].first_element_child.children[0].children,
                 date=self._parse_date(c[2].children[0].children)
             )
-        archive['entries'] = i
         Archive._archive = MappingProxyType(archive)
         return Archive._archive
 
     def __delete__(self, instance):
         Archive._archive = None
+        del Archive._length
+
+    def __len__(self):
+        return self._length
 
     @staticmethod
     def _is_archive_entry(node):
@@ -88,7 +96,7 @@ class WhatIf(object):
 
     @classmethod
     def latest(cls):
-        return cls.archive.__get__(0, None)['entries']
+        return len(cls.archive)
 
     @classmethod
     def random(cls):
@@ -144,7 +152,7 @@ class WhatIf(object):
     @ThreadedCachedProperty
     def full_page(self):
         with urlopen(self.url) as http:
-            return http.read()
+            return http.read().decode('utf-8')
 
     full_page.can_delete = True
 
