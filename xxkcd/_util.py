@@ -64,3 +64,16 @@ except ImportError:
     reduce = builtins.reduce
 
 range = getattr(builtins, 'xrange', range)
+int = getattr(builtins, 'long', int)
+
+try:
+    from operator import index
+except ImportError:
+    index = int
+
+try:
+    infinity = float('inf')
+    neg_infinity = -infinity
+except ValueError:
+    infinity = None
+    neg_infinity = None

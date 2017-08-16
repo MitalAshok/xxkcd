@@ -11,7 +11,7 @@ import multiprocessing
 
 from objecttools import ThreadedCachedProperty
 
-from xxkcd._util import urlopen, reload, unescape, map, str_is_bytes, MappingProxyType, range
+from xxkcd._util import urlopen, reload, unescape, map, str_is_bytes, MappingProxyType, range, infinity, int, index
 from xxkcd import constants
 
 __all__ = ('xkcd',)
@@ -86,8 +86,15 @@ class xkcd(object):
             return comic
         if comic is not None:
             try:
-                comic = int(comic)
+                comic = index(comic)
             except (ValueError, TypeError):
+                try:
+                    comic = float(comic)
+                    if comic >= infinity:
+                        comic = None
+                except (ValueError, TypeError):
+                    comic = Exception
+            if comic is Exception:
                 raise TypeError('comic must be an integer')
             if comic <= 0 or comic > cls.latest():
                 comic = None
@@ -113,8 +120,8 @@ class xkcd(object):
     def _raw_json(self):
         """Raw JSON with a possibly incorrect transcript and alt text"""
         if self.comic == 404:
-            if MappingProxyType is dict:
-                return dict(_404_mock)
+            if isinstance(_404_mock, dict):
+                return MappingProxyType(_404_mock)
             return _404_mock
         if self.comic is None:
             url = constants.xkcd.json.latest
@@ -167,7 +174,7 @@ class xkcd(object):
             n += 3
         elif n >= 1608:
             n += 2
-        other_json = self._raw_json.copy()
+        other_json = dict(self._raw_json)
         if n is not None and n < self.latest() - 3:
             other_json['transcript'] = _decode(xkcd(n)._raw_json['transcript'])
         else:
@@ -237,24 +244,23 @@ class xkcd(object):
         """
         Stream the raw image file from the link and write to file.
 
-        :param file: File-like to write to, or None to yield chunks
+        :param file: File-like to write to, or None to return an iterator over the chunks
         :type file: Optional[BinaryIO]
-        :param chunk_size: Size of chunks
-        :type chunk_size: int
-        :return: generator or None
+        :param chunk_size: Size of chunks (or None for the whole file in a chunk. Consider `self.read_image()`.)
+        :type chunk_size: Optional[int]
+        :return: iterator or None
+        :rtype: Optional[type(iter((lambda: None), None))]  # Optional[CallableIterator]
         """
         if not self.img:
             raise ValueError('Comic {} does not have an image!'.format(self))
         if file is None:
-            def generator():
-                with urlopen(self.img) as http:
-                    for i in iter(functools.partial(http.read, chunk_size), b''):
-                        yield i
-            return generator()
-        else:
             with urlopen(self.img) as http:
-                for i in iter(functools.partial(http.read, chunk_size), b''):
-                    file.write(i)
+                read = http.read
+                if chunk_size is not None:
+                    read = functools.partial(read, chunk_size)
+                return iter(read, b'')
+        for chunk in self.stream_image(chunk_size=chunk_size):
+            file.write(chunk)
 
     @property
     def image_name(self):
