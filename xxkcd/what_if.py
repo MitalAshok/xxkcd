@@ -24,15 +24,18 @@ class Archive(object):
 
     @ThreadedCachedProperty
     def _length(self):
-        return len(self.__get__(0, None))
+        return len(self.__get__())
 
     _length.can_delete = True
 
-    def __get__(self, instance, owner):
+    def __get__(self, instance=0, owner=None):
         if instance is None:
             return self
-        if Archive._archive is not None:
-            return Archive._archive
+        archive = Archive._archive
+        if archive is not None:
+            if isinstance(archive, dict):
+                return dict(archive)
+            return archive
         parser = ParseToTree()
         with urlopen(constants.what_if.archive) as http:
             data = http.read()
@@ -48,8 +51,10 @@ class Archive(object):
                 title=c[1].first_element_child.children[0].children,
                 date=self._parse_date(c[2].children[0].children)
             )
-        Archive._archive = MappingProxyType(archive)
-        return Archive._archive
+        archive = Archive._archive = MappingProxyType(archive)
+        if isinstance(archive, dict):
+            return dict(archive)
+        return archive
 
     def __delete__(self, instance):
         Archive._archive = None
@@ -77,6 +82,8 @@ class WhatIf(object):
     _cache = {}
     _keep_alive = {}
 
+    archive = Archive()
+
     def __new__(cls, article=None, keep_alive=False):
         if isinstance(article, cls):
             if keep_alive:
@@ -91,8 +98,6 @@ class WhatIf(object):
         if keep_alive:
             cls._keep_alive[article] = self
         return self
-
-    archive = Archive()
 
     @classmethod
     def latest(cls):
