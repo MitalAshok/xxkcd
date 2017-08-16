@@ -6,14 +6,13 @@ import random
 from objecttools import ThreadedCachedProperty
 
 from xxkcd import constants
-from xxkcd._util import urlopen, MappingProxyType, range
+from xxkcd._util import urlopen, MappingProxyType, range, str_is_bytes, coerce_, dead_weaklink
 from xxkcd._html_parsing import ParseToTree
+
+__all__ = ('WhatIf',)
 
 ArchiveEntry = collections.namedtuple('ArchiveEntry', ('image', 'title', 'date'))
 ArticlePart = collections.namedtuple('ArticlePart', ('type', 'value'))
-
-
-has_unicode = type(u'') is type('')
 
 
 class Archive(object):
@@ -24,6 +23,8 @@ class Archive(object):
     ]
 
     def __get__(self, instance, owner):
+        if instance is None:
+            return self
         if Archive._archive is not None:
             return Archive._archive
         parser = ParseToTree()
@@ -35,7 +36,7 @@ class Archive(object):
         for i, archive_entry in enumerate(tree.find_all(Archive._is_archive_entry), 1):
             c = archive_entry.element_children
             image = constants.what_if.base + c[0].first_element_child.attr_dict['src']
-            if has_unicode:
+            if str_is_bytes:
                 image = image.encode('ascii')
             archive[i] = ArchiveEntry(
                 image=image,
@@ -69,23 +70,16 @@ class WhatIf(object):
     _keep_alive = {}
 
     def __new__(cls, article=None, keep_alive=False):
-        if article is not None:
-            try:
-                article = int(article)
-            except (ValueError, TypeError):
-                raise TypeError('article must be an integer')
-            if article <= 0 or article > cls.latest():
-                article = None
-        cached = cls._cache.get(article, None)
-        if cached is not None:
-            cached = cached()
-            if cached is not None:
-                if keep_alive:
-                    cls._keep_alive[article] = cached
-                return cached
-        self = super(WhatIf, cls).__new__(cls)
-        self._article = article
-        cls._cache[article] = weakref.ref(self)
+        if isinstance(article, cls):
+            if keep_alive:
+                cls._keep_alive[article.article] = article
+            return article
+        article = coerce_(article, cls.latest)
+        self = cls._cache.get(article, dead_weaklink)()
+        if self is None:
+            self = super(WhatIf, cls).__new__(cls)
+            self._article = article
+            cls._cache[article] = weakref.ref(self)
         if keep_alive:
             cls._keep_alive[article] = self
         return self
@@ -94,7 +88,7 @@ class WhatIf(object):
 
     @classmethod
     def latest(cls):
-        return cls.archive['entries']
+        return cls.archive.__get__(0, None)['entries']
 
     @classmethod
     def random(cls):
@@ -105,18 +99,24 @@ class WhatIf(object):
         return self._article
 
     @property
+    def number(self):
+        if self._article is None:
+            return self.latest()
+        return self._article
+
+    @property
     def image(self):
-        return self.archive[self.article or self.latest()].image
+        return self.archive[self.number()].image
 
     img = image  # To remain consistent with the xkcd API
 
     @property
     def title(self):
-        return self.archive[self.article or self.latest()].title
+        return self.archive[self.number()].title
 
     @property
     def date(self):
-        return self.archive[self.article or self.latest()].date
+        return self.archive[self.number()].date
 
     @property
     def month(self):
@@ -228,5 +228,57 @@ class WhatIf(object):
     def range(cls, from_=1, to=None, step=1):
         if to is None:
             to = cls.latest() + 1
-
         return range(from_, to, step)
+
+    def __eq__(self, other):
+        if isinstance(other, WhatIf) and isinstance(self, WhatIf):
+            if self is other or other.article == self.article:
+                return True
+            if self.article is None:
+                return self.number == other.article
+            if other.article is None:
+                return other.number == self.article
+            return False
+        return NotImplemented
+
+    def __ne__(self, other):
+        eq = self.__eq__(other)
+        if eq is NotImplemented:
+            return NotImplemented
+        return not eq
+
+    def __lt__(self, other):
+        if isinstance(other, WhatIf) and isinstance(self, WhatIf):
+            if self is other or self.article == other.article:
+                return False
+            if self.article is None:
+                return False
+            if other.article is None:
+                return True
+            return self.article < other.article
+        return NotImplemented
+
+    def __le__(self, other):
+        if isinstance(other, WhatIf) and isinstance(self, WhatIf):
+            if self is other or self.article == other.article:
+                return True
+            if self.article is None:
+                if other.article is None:
+                    return True
+                return self.number == other.article
+            if other.article is None:
+                return True
+            return self.article <= other.article
+        return NotImplemented
+
+    def __ge__(self, other):
+        lt = self.__lt__(other)
+        if lt is NotImplemented:
+            return NotImplemented
+        return not lt
+
+    def __gt__(self, other):
+        le = self.__le__(other)
+        if le is NotImplemented:
+            return NotImplemented
+        return not le

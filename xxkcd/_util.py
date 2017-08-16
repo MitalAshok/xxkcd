@@ -77,3 +77,29 @@ try:
 except ValueError:
     infinity = None
     neg_infinity = None
+
+def dead_weaklink():
+    return None
+
+def coerce_(x, max_fn):
+    if x is None:
+        return x
+    try:
+        x = int(index(x))
+    except (ValueError, TypeError):
+        try:
+            x = float(x)
+            if x >= infinity:
+                return None
+        except (ValueError, TypeError):
+            pass
+    else:
+        if x == 0:
+            return None
+        if x <= 0:
+            x = max_fn() + 1 + x
+            if x <= 0:
+                return 1
+            return x
+        return min(x, max_fn())
+    raise TypeError('comic must be an integer')

@@ -11,7 +11,10 @@ import multiprocessing
 
 from objecttools import ThreadedCachedProperty
 
-from xxkcd._util import urlopen, reload, unescape, map, str_is_bytes, MappingProxyType, range, infinity, int, index
+from xxkcd._util import (
+    urlopen, reload, unescape, map, str_is_bytes, MappingProxyType,
+    range, int, dead_weaklink, coerce_
+)
 from xxkcd import constants
 
 __all__ = ('xkcd',)
@@ -73,7 +76,8 @@ class xkcd(object):
         Wrapper around the xkcd API for the comic
 
         :param Optional[int] comic: Number of the comic.
-            Non-positive or `None` for the latest comic
+            -1 or `None` for the latest comic.
+            -x means x comics before the latest comic.
         :param bool keep_alive: True to not delete the data requested until
             the `.delete()` method is called
         :return: The new xkcd object
@@ -84,30 +88,12 @@ class xkcd(object):
             if keep_alive:
                 cls._keep_alive[comic.comic] = comic
             return comic
-        if comic is not None:
-            try:
-                comic = index(comic)
-            except (ValueError, TypeError):
-                try:
-                    comic = float(comic)
-                    if comic >= infinity:
-                        comic = None
-                except (ValueError, TypeError):
-                    comic = Exception
-            if comic is Exception:
-                raise TypeError('comic must be an integer')
-            if comic <= 0 or comic > cls.latest():
-                comic = None
-        cached = cls._cache.get(comic, None)
-        if cached is not None:
-            cached = cached()
-            if cached is not None:
-                if keep_alive:
-                    cls._keep_alive[comic] = cached
-                return cached
-        self = super(xkcd, cls).__new__(cls)
-        self._comic = comic
-        cls._cache[comic] = weakref.ref(self)
+        comic = coerce_(comic, cls.latest)
+        self = cls._cache.get(comic, dead_weaklink)()
+        if self is None:
+            self = super(xkcd, cls).__new__(cls)
+            self._comic = comic
+            cls._cache[comic] = weakref.ref(self)
         if keep_alive:
             cls._keep_alive[comic] = self
         return self
@@ -385,25 +371,13 @@ class xkcd(object):
         import antigravity
         return antigravity
 
-    def __eq__(self, other):
-        if isinstance(other, xkcd):
-            if other.comic == self.comic:
-                return True
-            if self.comic is None:
-                return self.num == other.comic
-            if other.comic is None:
-                return other.num == self.comic
-            return False
-        return NotImplemented
-
-    def __ne__(self, other):
-        eq = self.__eq__(other)
-        if eq is NotImplemented:
-            return NotImplemented
-        return not eq
-
     def __iter__(self):
-        return self
+        if self.comic is None:
+            yield self
+            return
+        cls = type(self)
+        for c in range(self.comic, cls.latest() + 1):
+            yield cls(c)
 
     def next(self):
         """
@@ -437,8 +411,9 @@ class xkcd(object):
             comic = self.latest()
         else:
             comic = self.comic
+        cls = type(self)
         for i in range(comic - 1, 0, -1):
-            yield type(self)(i)
+            yield cls(i)
 
     @classmethod
     def range(cls, from_=1, to=None, step=1):
@@ -453,6 +428,62 @@ class xkcd(object):
         :return: A range over the requested comics.
         """
         if to is None:
-            to = cls.latest() + 1
+            if step < 0:
+                to = 0
+            else:
+                to = cls.latest() + 1
 
         return range(from_, to, step)
+
+    def __eq__(self, other):
+        if isinstance(other, xkcd) and isinstance(self, xkcd):
+            if self is other or other.comic == self.comic:
+                return True
+            if self.comic is None:
+                return self.num == other.comic
+            if other.comic is None:
+                return other.num == self.comic
+            return False
+        return NotImplemented
+
+    def __ne__(self, other):
+        eq = self.__eq__(other)
+        if eq is NotImplemented:
+            return NotImplemented
+        return not eq
+
+    def __lt__(self, other):
+        if isinstance(other, xkcd) and isinstance(self, xkcd):
+            if self is other or self.comic == other.comic:
+                return False
+            if self.comic is None:
+                return False
+            if other.comic is None:
+                return True
+            return self.comic < other.comic
+        return NotImplemented
+
+    def __le__(self, other):
+        if isinstance(other, xkcd) and isinstance(self, xkcd):
+            if self is other or self.comic == other.comic:
+                return True
+            if self.comic is None:
+                if other.comic is None:
+                    return True
+                return self.num == other.comic
+            if other.comic is None:
+                return True
+            return self.comic <= other.comic
+        return NotImplemented
+
+    def __ge__(self, other):
+        lt = self.__lt__(other)
+        if lt is NotImplemented:
+            return NotImplemented
+        return not lt
+
+    def __gt__(self, other):
+        le = self.__le__(other)
+        if le is NotImplemented:
+            return NotImplemented
+        return not le
