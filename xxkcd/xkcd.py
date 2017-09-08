@@ -12,14 +12,14 @@ import multiprocessing
 from objecttools import ThreadedCachedProperty
 
 from xxkcd._util import (
-    urlopen, reload, unescape, map, str_is_bytes, MappingProxyType,
+    urlopen, reload, unescape, map, str_is_bytes, make_mapping_proxy,
     range, int, dead_weaklink, coerce_
 )
 from xxkcd import constants
 
 __all__ = ('xkcd',)
 
-_404_mock = MappingProxyType({
+_404_mock = make_mapping_proxy({
     'month': '4', 'num': 404, 'link': '', 'year': '2008', 'news': '',
     'safe_title': '404 not found', 'transcript': '', 'alt': '', 'img': '',
     'title': '404 - Not Found', 'day': '1'
@@ -106,17 +106,15 @@ class xkcd(object):
     def _raw_json(self):
         """Raw JSON with a possibly incorrect transcript and alt text"""
         if self.comic == 404:
-            if isinstance(_404_mock, dict):
-                return MappingProxyType(_404_mock)
-            return _404_mock
+            return make_mapping_proxy(_404_mock)
         if self.comic is None:
             url = constants.xkcd.json.latest
         else:
             url = constants.xkcd.json.for_comic(number=self.comic)
         with urlopen(url) as http:
             if _JSON_BYTES:
-                return MappingProxyType(json.load(http))
-            return MappingProxyType(json.loads(http.read().decode('utf-8')))
+                return make_mapping_proxy(json.load(http))
+            return make_mapping_proxy(json.loads(http.read().decode('utf-8')))
 
     _raw_json.can_delete = True
 
@@ -177,7 +175,7 @@ class xkcd(object):
         if str_is_bytes:
             other_json['img'] = other_json['img'].encode('ascii')
             other_json['link'] = other_json['link'].encode('ascii')
-        return MappingProxyType(other_json)
+        return make_mapping_proxy(other_json)
 
     json.can_delete = True
 

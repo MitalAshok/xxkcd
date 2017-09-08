@@ -6,7 +6,7 @@ import random
 from objecttools import ThreadedCachedProperty
 
 from xxkcd import constants
-from xxkcd._util import urlopen, MappingProxyType, range, str_is_bytes, coerce_, dead_weaklink
+from xxkcd._util import urlopen, make_mapping_proxy, range, str_is_bytes, coerce_, dead_weaklink
 from xxkcd._html_parsing import ParseToTree
 
 __all__ = ('WhatIf',)
@@ -33,9 +33,7 @@ class Archive(object):
             return self
         archive = Archive._archive
         if archive is not None:
-            if isinstance(archive, dict):
-                return dict(archive)
-            return archive
+            return make_mapping_proxy(archive)
         parser = ParseToTree()
         with urlopen(constants.what_if.archive) as http:
             data = http.read()
@@ -51,10 +49,8 @@ class Archive(object):
                 title=c[1].first_element_child.children[0].children,
                 date=self._parse_date(c[2].children[0].children)
             )
-        archive = Archive._archive = MappingProxyType(archive)
-        if isinstance(archive, dict):
-            return dict(archive)
-        return archive
+        article = Archive._archive = make_mapping_proxy(archive)
+        return make_mapping_proxy(article)
 
     def __delete__(self, instance):
         Archive._archive = None
