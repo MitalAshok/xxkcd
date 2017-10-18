@@ -55,7 +55,7 @@ def _load_one(comic):
     Cache a comic so that it won't make HTTP requests and rely on the cache
 
     :param comic: The comic to cache. Consider using `xkcd.load_all()`
-    :type comic: Union[int, xkcd]
+    :type comic: Union[int, xkcd, None]
     :return: None
     """
     xkcd(comic, True).json
@@ -75,7 +75,7 @@ class xkcd(object):
         """
         Wrapper around the xkcd API for the comic
 
-        :param Optional[int] comic: Number of the comic.
+        :param Union[int, None, xkcd] comic: Number of the comic.
             -1 or `None` for the latest comic.
             -x means x comics before the latest comic.
         :param bool keep_alive: True to not delete the data requested until
@@ -248,15 +248,35 @@ class xkcd(object):
 
     @property
     def image_name(self):
-        """Suggested name for the image file"""
+        """Suggested name for the image file. None if no image."""
         if not self.img:
-            raise AttributeError('Comic {} does not have an image!'.format(self))
+            return None
         return posixpath.basename(self.img)
 
     @property
     def image_ext(self):
-        """File extension of image file. Usually '.png'. '' if no extension."""
+        """File extension of image file. Usually '.png'. '' if no extension, None if no image."""
+        image_name = self.image_name
+        if image_name is None:
+            return None
         return posixpath.splitext(self.image_name)[1]
+
+    @property
+    def image_mime(self):
+        """
+        Mime type of the image. Usually 'image/png'.
+        'application/octet-stream' if not found, None if no image.
+        """
+        ext = self.image_ext
+        if ext is None:
+            return None
+        if ext:
+            ext = ext.lstrip('.').lower()
+            return 'image/{}'.format({
+                'jpg': 'jpeg',
+                'svg': 'svg+xml'
+            }.get(ext, ext))
+        return 'application/octet-stream'
 
     @property
     def title(self):

@@ -115,17 +115,17 @@ class WhatIf(object):
 
     @property
     def image(self):
-        return self.archive[self.number()].image
+        return self.archive[self.number].image
 
     img = image  # To remain consistent with the xkcd API
 
     @property
     def title(self):
-        return self.archive[self.number()].title
+        return self.archive[self.number].title
 
     @property
     def date(self):
-        return self.archive[self.number()].date
+        return self.archive[self.number].date
 
     @property
     def month(self):

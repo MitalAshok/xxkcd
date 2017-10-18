@@ -25,7 +25,7 @@ try:
     def make_mapping_proxy(mapping):
         if isinstance(mapping, MappingProxyType):
             return mapping
-        return MappingProxyType
+        return MappingProxyType(mapping)
 except ImportError:
     make_mapping_proxy = MappingProxyType = dict
 
@@ -94,7 +94,7 @@ def coerce_(x, max_fn):
     except (ValueError, TypeError):
         try:
             x = float(x)
-            if x >= infinity:
+            if infinity is not None and x >= infinity:
                 return None
         except (ValueError, TypeError):
             pass
