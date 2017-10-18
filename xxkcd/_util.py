@@ -78,10 +78,9 @@ except ImportError:
 
 try:
     infinity = float('inf')
-    neg_infinity = -infinity
 except ValueError:
-    infinity = None
-    neg_infinity = None
+    infinity = 1e999 ** 2
+neg_infinity = -infinity
 
 def dead_weaklink():
     return None
@@ -94,7 +93,7 @@ def coerce_(x, max_fn):
     except (ValueError, TypeError):
         try:
             x = float(x)
-            if infinity is not None and x >= infinity:
+            if x >= infinity:
                 return None
         except (ValueError, TypeError):
             pass

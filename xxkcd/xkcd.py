@@ -63,6 +63,16 @@ def _load_one(comic):
 # Python 2 and Python 3.6+ allow bytes JSON
 _JSON_BYTES = sys.version_info < (3,) or sys.version_info >= (3, 6)
 
+_MIMES = {
+    '.png': 'image/png', '.jpg': 'image/jpeg', 'gif': 'image/gif',
+    '.jpeg': 'image/jpeg'
+}
+
+___ = 'antigravity'
+____ = sys.modules.get
+_____ = None
+______ = reload
+
 
 class xkcd(object):
     """Interface with the xkcd JSON API"""
@@ -86,7 +96,7 @@ class xkcd(object):
         """
         if isinstance(comic, cls):
             if keep_alive:
-                cls._keep_alive[comic.comic] = comic
+                cls._keep_alive[comic._comic] = comic
             return comic
         comic = coerce_(comic, cls.latest)
         self = cls._cache.get(comic, dead_weaklink)()
@@ -105,12 +115,12 @@ class xkcd(object):
     @ThreadedCachedProperty
     def _raw_json(self):
         """Raw JSON with a possibly incorrect transcript and alt text"""
-        if self.comic == 404:
+        if self._comic == 404:
             return make_mapping_proxy(_404_mock)
-        if self.comic is None:
+        if self._comic is None:
             url = constants.xkcd.json.latest
         else:
-            url = constants.xkcd.json.for_comic(number=self.comic)
+            url = constants.xkcd.json.for_comic(number=self._comic)
         with urlopen(url) as http:
             if _JSON_BYTES:
                 return make_mapping_proxy(json.load(http))
@@ -148,7 +158,7 @@ class xkcd(object):
             'day' Optional[int]
         }
         """
-        n = self.comic
+        n = self._comic
         if n is None:
             pass
         # These comics messed up the transcripts.
@@ -271,11 +281,7 @@ class xkcd(object):
         if ext is None:
             return None
         if ext:
-            ext = ext.lstrip('.').lower()
-            return 'image/{}'.format({
-                'jpg': 'jpeg',
-                'svg': 'svg+xml'
-            }.get(ext, ext))
+            return _MIMES.get(ext.lstrip('.').lower(), 'application/octet-stream')
         return 'application/octet-stream'
 
     @property
@@ -319,8 +325,8 @@ class xkcd(object):
         """
         del self._raw_json
         del self.json
-        self._keep_alive.pop(self.comic, None)
-        self._cache.pop(self.comic, None)
+        self._keep_alive.pop(self._comic, None)
+        self._cache.pop(self._comic, None)
 
     @property
     def explain_xkcd(self):
@@ -328,9 +334,9 @@ class xkcd(object):
         :return: The explain xkcd wiki link for this comic
         :rtype: str
         """
-        if self.comic is None:
+        if self._comic is None:
             return constants.explain_xkcd.latest
-        return constants.explain_xkcd.for_comic(number=self.comic)
+        return constants.explain_xkcd.for_comic(number=self._comic)
 
     @property
     def url(self):
@@ -338,9 +344,9 @@ class xkcd(object):
         :return: The url for this comic
         :rtype: str
         """
-        if self.comic is None:
+        if self._comic is None:
             return constants.xkcd.latest
-        return constants.xkcd.for_comic(number=self.comic)
+        return constants.xkcd.for_comic(number=self._comic)
 
     @property
     def mobile_url(self):
@@ -348,16 +354,16 @@ class xkcd(object):
         :return: The mobile url for this comic
         :rtype: str
         """
-        if self.comic is None:
+        if self._comic is None:
             return constants.xkcd.mobile.latest
-        return constants.xkcd.mobile.for_comic(number=self.comic)
+        return constants.xkcd.mobile.for_comic(number=self._comic)
 
     @property
     def num(self):
         return self.json['num']
 
     def __repr__(self):
-        return '{type.__name__}({number})'.format(type=type(self), number=self.comic or '')
+        return '{type.__name__}({number})'.format(type=type(self), number=self._comic or '')
 
     @classmethod
     def load_all(cls, multiprocessed=False):
@@ -393,18 +399,18 @@ class xkcd(object):
     @staticmethod
     def antigravity():
         """???"""
-        antigravity = sys.modules.get('antigravity')
-        if antigravity is not None:
-            return reload(antigravity)
+        antigravity = ____(___)
+        if antigravity is not _____:
+            return ______(antigravity)
         import antigravity
         return antigravity
 
     def __iter__(self):
-        if self.comic is None:
+        if self._comic is None:
             yield self
             return
         cls = type(self)
-        for c in range(self.comic, cls.latest() + 1):
+        for c in range(self._comic, cls.latest() + 1):
             yield cls(c)
 
     def next(self):
@@ -423,22 +429,22 @@ class xkcd(object):
         :return: Previous comic
         :rtype: xkcd
         """
-        if self.comic is None:
+        if self._comic is None:
             return type(self)(self.latest() - 1)
-        if self.comic == 1:
+        if self._comic == 1:
             raise StopIteration
-        return type(self)(self.comic - 1)
+        return type(self)(self._comic - 1)
 
     def __next__(self):
-        if self.comic is None or self.comic == self.latest():
+        if self._comic is None or self._comic == self.latest():
             raise StopIteration
-        return type(self)(self.comic + 1)
+        return type(self)(self._comic + 1)
 
     def __reversed__(self):
-        if self.comic is None:
+        if self._comic is None:
             comic = self.latest()
         else:
-            comic = self.comic
+            comic = self._comic
         cls = type(self)
         for i in range(comic - 1, 0, -1):
             yield cls(i)
@@ -465,12 +471,12 @@ class xkcd(object):
 
     def __eq__(self, other):
         if isinstance(other, xkcd) and isinstance(self, xkcd):
-            if self is other or other.comic == self.comic:
+            if self is other or other.comic == self._comic:
                 return True
-            if self.comic is None:
+            if self._comic is None:
                 return self.num == other.comic
             if other.comic is None:
-                return other.num == self.comic
+                return other.num == self._comic
             return False
         return NotImplemented
 
@@ -482,26 +488,26 @@ class xkcd(object):
 
     def __lt__(self, other):
         if isinstance(other, xkcd) and isinstance(self, xkcd):
-            if self is other or self.comic == other.comic:
+            if self is other or self._comic == other.comic:
                 return False
-            if self.comic is None:
+            if self._comic is None:
                 return False
             if other.comic is None:
                 return True
-            return self.comic < other.comic
+            return self._comic < other.comic
         return NotImplemented
 
     def __le__(self, other):
         if isinstance(other, xkcd) and isinstance(self, xkcd):
-            if self is other or self.comic == other.comic:
+            if self is other or self._comic == other.comic:
                 return True
-            if self.comic is None:
+            if self._comic is None:
                 if other.comic is None:
                     return True
                 return self.num == other.comic
             if other.comic is None:
                 return True
-            return self.comic <= other.comic
+            return self._comic <= other.comic
         return NotImplemented
 
     def __ge__(self, other):
