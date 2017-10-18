@@ -13,16 +13,16 @@ from objecttools import ThreadedCachedProperty
 
 from xxkcd._util import (
     urlopen, reload, unescape, map, str_is_bytes, make_mapping_proxy,
-    range, int, dead_weaklink, coerce_
+    range, short, dead_weaklink, coerce_
 )
 from xxkcd import constants
 
 __all__ = ('xkcd',)
 
 _404_mock = make_mapping_proxy({
-    'month': '4', 'num': 404, 'link': '', 'year': '2008', 'news': '',
-    'safe_title': '404 not found', 'transcript': '', 'alt': '', 'img': '',
-    'title': '404 - Not Found', 'day': '1'
+    'month': 4, 'num': 404, 'link': '', 'year': 2008, 'news': u'',
+    'safe_title': u'404 not found', 'transcript': u'', 'alt': u'', 'img': '',
+    'title': u'404 - Not Found', 'day': 1
 })
 
 
@@ -168,7 +168,12 @@ class xkcd(object):
             n += 3
         elif n >= 1608:
             n += 2
-        other_json = dict(self._raw_json)
+        if str_is_bytes:
+            other_json = {}
+            for key in self._raw_json:
+                other_json[key.encode('ascii')] = self._raw_json[key]
+        else:
+            other_json = dict(self._raw_json)
         if n is not None and n < self.latest() - 3:
             other_json['transcript'] = _decode(xkcd(n)._raw_json['transcript'])
         else:
@@ -177,11 +182,11 @@ class xkcd(object):
             other_json[text_key] = _decode(other_json[text_key])
         for int_key in ('day', 'month', 'year'):
             if other_json[int_key]:
-                other_json[int_key] = int(other_json[int_key])
+                other_json[int_key] = short(other_json[int_key])
             else:
                 other_json[int_key] = None
         if other_json['img'] == constants.xkcd.images.blank:
-            other_json['img'] = u''
+            other_json['img'] = ''
         if str_is_bytes:
             other_json['img'] = other_json['img'].encode('ascii')
             other_json['link'] = other_json['link'].encode('ascii')

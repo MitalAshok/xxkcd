@@ -48,8 +48,8 @@ text_type = type(u'')
 str_type = type('')
 binary_type = type(b'')
 
-str_is_unicode = text_type is text_type
-str_is_bytes = text_type is binary_type
+str_is_unicode = str_type is text_type
+str_is_bytes = str_type is binary_type
 
 try:
     from importlib import reload
@@ -70,6 +70,7 @@ except ImportError:
 
 range = getattr(builtins, 'xrange', range)
 int = getattr(builtins, 'long', int)
+short = builtins.int
 
 try:
     from operator import index
@@ -98,6 +99,10 @@ def coerce_(x, max_fn):
         except (ValueError, TypeError):
             pass
     else:
+        try:
+            x = short(x)
+        except:
+            pass
         if x == 0:
             return None
         if x <= 0:
