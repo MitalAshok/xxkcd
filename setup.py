@@ -10,10 +10,13 @@ from setuptools import setup, find_packages
 __dir__ = os.path.abspath(os.path.dirname(__file__))
 
 # To prevent a redundant __version__, import it from the packages
-sys.path.insert(0, os.path.join(__dir__, 'xxkcd'))
+sys.path.insert(0, __dir__)
 
 try:
-    from metadata import __version__, __author__, __email__
+    from xxkcd.metadata import (
+        __version__, __author__, __email__, __license__, __url__,
+        __description__
+    )
 finally:
     sys.path.pop(0)
 
@@ -25,15 +28,15 @@ setup_args = dict(
 
     version=__version__,
 
-    description='An (unofficial) Python wrapper around xkcd APIs',
+    description=__description__,
     long_description=long_description,
 
-    url='https://github.com/MitalAshok/xxkcd',
+    url=__url__,
 
     author=__author__,
     author_email=__email__,
 
-    license='MIT',
+    license=__license__,
 
     classifiers=[
         'Development Status :: 3 - Alpha',
@@ -55,7 +58,7 @@ setup_args = dict(
     packages=find_packages(exclude=['contrib', 'docs', 'tests', 'examples']),
 
     install_requires=[
-        'objecttools>=0.0.4'
+        'objecttools>=1.0.1'
     ],
     extras_require={},
     entry_points={},

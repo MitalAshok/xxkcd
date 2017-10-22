@@ -8,6 +8,7 @@ import random
 import functools
 import posixpath
 import multiprocessing
+import shutil
 
 from objecttools import ThreadedCachedProperty
 
@@ -239,30 +240,40 @@ class xkcd(object):
         with urlopen(self.img) as http:
             return http.read()
 
-    def stream_image(self, file=None, chunk_size=2048):
+    def stream_image(self, file=None, chunk_size=16384):
         """
         Stream the raw image file from the link and write to file.
 
         :param file: File-like to write to, or None to return an iterator over the chunks
         :type file: Optional[BinaryIO]
-        :param chunk_size: Size of chunks (or None for the whole file in a chunk. Consider `self.read_image()`.)
+        :param chunk_size: Size of chunks (or None for the whole file in a single chunk. Consider `self.read_image()`.)
         :type chunk_size: Optional[int]
         :return: iterator or None
-        :rtype: Optional[type(iter((lambda: None), None))]  # Optional[CallableIterator]
+        :rtype: Optional[Iterator[bytes]]
         """
         if not self.img:
             raise ValueError('Comic {} does not have an image!'.format(self))
+        opened = urlopen(self.img)
         if file is None:
-            with urlopen(self.img) as http:
-                read = http.read
-                if chunk_size is not None:
-                    read = functools.partial(read, chunk_size)
-                return iter(read, b'')
-        for chunk in self.stream_image(chunk_size=chunk_size):
-            file.write(chunk)
+            def _generator():
+                # Use an inner function so the function
+                # can end normally if file is not None
+                with opened as http:
+                    read = http.read
+                    if chunk_size is not None:
+                        read = functools.partial(read, chunk_size)
+                    for chunk in iter(read, b''):
+                        yield chunk
+            return _generator()
+        else:
+            with opened as http:
+                if chunk_size is None:
+                    shutil.copyfileobj(http, file)
+                else:
+                    shutil.copyfileobj(http, file, chunk_size)
 
     @property
-    def image_name(self):
+    def image_filename(self):
         """Suggested name for the image file. None if no image."""
         if not self.img:
             return None
@@ -271,10 +282,17 @@ class xkcd(object):
     @property
     def image_ext(self):
         """File extension of image file. Usually '.png'. '' if no extension, None if no image."""
-        image_name = self.image_name
+        image_name = self.image_filename
         if image_name is None:
             return None
-        return posixpath.splitext(self.image_name)[1]
+        return posixpath.splitext(image_name)[1]
+
+    @property
+    def image_name(self):
+        image_name = self.image_filename
+        if image_name is None:
+            return None
+        return posixpath.splitext(image_name)[0]
 
     @property
     def image_mime(self):

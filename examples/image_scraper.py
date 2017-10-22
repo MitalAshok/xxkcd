@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import sys
 import multiprocessing
 
 from xxkcd import xkcd
@@ -9,11 +8,9 @@ from xxkcd import xkcd
 
 def download_image(n):
     x = xkcd(n)
-    try:
-        name = '{number}_{name}'.format(number=n, name=x.image_name)
-    except AttributeError:
-        # Comic has no image
-        return
+    if x.image_filename is None:
+        return  # Comic has no image
+    name = '{number}_{name}'.format(number=n, name=x.image_filename)
     with open(os.path.join('images', name), 'wb') as f:
         x.stream_image(f)
 
