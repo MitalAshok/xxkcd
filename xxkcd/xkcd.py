@@ -9,12 +9,13 @@ import functools
 import posixpath
 import multiprocessing
 import shutil
+import re
 
 from objecttools import ThreadedCachedProperty
 
 from xxkcd._util import (
     urlopen, reload, unescape, map, str_is_bytes, make_mapping_proxy,
-    range, short, dead_weaklink, coerce_
+    range, short, dead_weaklink, coerce_, text_type
 )
 from xxkcd import constants
 
@@ -68,6 +69,20 @@ _MIMES = {
     '.png': 'image/png', '.jpg': 'image/jpeg', 'gif': 'image/gif',
     '.jpeg': 'image/jpeg'
 }
+
+_FMT_REPLACER = re.compile(r'<<|>>|[<{>}]').sub
+_FMT_MAP = make_mapping_proxy({
+    '<<': '<',
+    '>>': '>',
+    '>': '}',
+    '<': '{',
+    '{': '{{',
+    '}': '}}'
+})
+
+
+def _fmt_replacer_function(match):
+    return _FMT_MAP[match.group(0)]
 
 ___ = 'antigravity'
 ____ = sys.modules.get
@@ -238,7 +253,8 @@ class xkcd(object):
         if not self.img:
             raise ValueError('Comic {} does not have an image!'.format(self))
         with urlopen(self.img) as http:
-            return http.read()
+            # http.read may not read all at once.
+            return b''.join(iter(http.read, b''))
 
     def stream_image(self, file=None, chunk_size=16384):
         """
@@ -260,15 +276,17 @@ class xkcd(object):
                 # can end normally if file is not None
                 with opened as http:
                     read = http.read
-                    if chunk_size is not None:
+                    if chunk_size is None:
+                        yield b''.join(iter(http.read, b''))
+                    else:
                         read = functools.partial(read, chunk_size)
-                    for chunk in iter(read, b''):
-                        yield chunk
+                        for chunk in iter(read, b''):
+                            yield chunk
             return _generator()
         else:
             with opened as http:
                 if chunk_size is None:
-                    shutil.copyfileobj(http, file)
+                    file.write(b''.join(iter(http.read, b'')))
                 else:
                     shutil.copyfileobj(http, file, chunk_size)
 
@@ -289,6 +307,7 @@ class xkcd(object):
 
     @property
     def image_name(self):
+        """`self.image_filename` without the extension."""
         image_name = self.image_filename
         if image_name is None:
             return None
@@ -303,9 +322,7 @@ class xkcd(object):
         ext = self.image_ext
         if ext is None:
             return None
-        if ext:
-            return _MIMES.get(ext.lstrip('.').lower(), 'application/octet-stream')
-        return 'application/octet-stream'
+        return _MIMES.get(ext.lstrip('.').lower(), 'application/octet-stream')
 
     @property
     def title(self):
@@ -544,3 +561,36 @@ class xkcd(object):
         if le is NotImplemented:
             return NotImplemented
         return not le
+
+    def _format(self, fmt=None):
+        """Format a filename."""
+        if fmt is None or fmt == '':
+            return str(self)
+        elif not isinstance(fmt, (str, text_type)):
+            raise ValueError('format must be a str')
+        return _FMT_REPLACER(_fmt_replacer_function, fmt).format(
+            filename=self.image_filename or '',
+            image_filename=self.image_filename or '',
+            ext=self.image_ext or '',
+            image_ext=self.image_ext or '',
+            mime=self.image_mime or '',
+            image_mime=self.image_mime or '',
+            name=self.image_name,
+            image_name=self.image_name,
+            num=self.num,
+            comic=self.num,  # so it is resolved for xkcd().comic == None
+            day=self.day,
+            month=self.month,
+            year=self.year,
+            date=self.date,
+            title=self.safe_title,
+            safe_title=self.safe_title,
+            unsafe_title=self.title,
+            url=self.url,
+            image_url=self.img,
+            img=self.img
+        )
+
+    del _format  # Not implemented yet
+
+    # __format__ = format
