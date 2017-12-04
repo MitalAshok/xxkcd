@@ -10,6 +10,7 @@ import posixpath
 import multiprocessing
 import shutil
 import re
+import contextlib
 
 from objecttools import ThreadedCachedProperty
 
@@ -65,6 +66,11 @@ def _load_one(comic):
 # Python 2 and Python 3.6+ allow bytes JSON
 _JSON_BYTES = sys.version_info < (3,) or sys.version_info >= (3, 6)
 
+if not _JSON_BYTES:
+    import codecs
+
+    _UTF_8_READER = codecs.getreader('utf-8')
+
 _MIMES = {
     '.png': 'image/png', '.jpg': 'image/jpeg', 'gif': 'image/gif',
     '.jpeg': 'image/jpeg'
@@ -93,6 +99,8 @@ ______ = reload
 class xkcd(object):
     """Interface with the xkcd JSON API"""
     __slots__ = ('_comic', '__weakref__', '__dict__')
+
+    urlopen = staticmethod(urlopen)
 
     _cache = {}
     _keep_alive = {}
@@ -124,6 +132,67 @@ class xkcd(object):
             cls._keep_alive[comic] = self
         return self
 
+    @staticmethod
+    def with_opener(opener, name='xkcdWithCustomOpener', qualname=None):
+        """
+        Takes an opener and returns an xkcd subclass that makes HTTP requests with that opener.
+
+        The opener is a callable object (e.g. a type). When called with a `str` for the
+        url, it should return an object with the following methods:
+            `read(n: int)`: Returns that many bytes from the response from the url.
+            `read()`: Read from the request and return as many bytes as possible.
+            `close()`: Closes the connection and no more methods will be called before open.
+
+        There may be more than one open connection at a time.
+
+        For example:
+
+            import requests
+
+            class Opener(object):
+                __slots__ = ('response',)
+
+                _session = None
+
+                @classmethod
+                def get(cls, url):
+                    if cls._session is None:
+                        cls._session = requests.Session()
+                    return cls._session.get(url)
+
+                def __init__(self, url):
+                    self.response = self.get(self._url)
+
+                def read(self, n=None):
+                    if n is None:
+                        return self.response.content
+                    return self.response.raw.read(n)
+
+                def close(self):
+                    self.response.close()
+
+        :param opener: The opener, as described above.
+        :param str name: The name of the subclass.
+        :param Optional[str] qualname: The qualified name of the class.
+        """
+        @staticmethod
+        def urlopen(url):
+            return contextlib.closing(opener(url))
+
+        d = {
+          '__slots__': ('_comic', '__weakref__', '__dict__'),
+          'urlopen': urlopen,
+          '_cache': {},
+          '_keep_alive': {},
+          '__module__': __name__
+        }
+
+        if hasattr(type, '__qualname__'):
+            if qualname is None:
+                qualname = '{}.with_opener.<locals>.{}'.format(xkcd.__qualname__, name)
+            d['__qualname__'] = qualname
+        return type(name, (xkcd,), d)
+
     @property
     def comic(self):
         return self._comic
@@ -137,10 +206,10 @@ class xkcd(object):
             url = constants.xkcd.json.latest
         else:
             url = constants.xkcd.json.for_comic(number=self._comic)
-        with urlopen(url) as http:
-            if _JSON_BYTES:
-                return make_mapping_proxy(json.load(http))
-            return make_mapping_proxy(json.loads(http.read().decode('utf-8')))
+        with self.urlopen(url) as http:
+            if not _JSON_BYTES:
+                http = _UTF_8_READER(http)
+            return make_mapping_proxy(json.load(http))
 
     _raw_json.can_delete = True
 
@@ -252,7 +321,7 @@ class xkcd(object):
         """
         if not self.img:
             raise ValueError('Comic {} does not have an image!'.format(self))
-        with urlopen(self.img) as http:
+        with self.urlopen(self.img) as http:
             # http.read may not read all at once.
             return b''.join(iter(http.read, b''))
 
@@ -269,7 +338,7 @@ class xkcd(object):
         """
         if not self.img:
             raise ValueError('Comic {} does not have an image!'.format(self))
-        opened = urlopen(self.img)
+        opened = self.urlopen(self.img)
         if file is None:
             def _generator():
                 # Use an inner function so the function
@@ -346,7 +415,7 @@ class xkcd(object):
         :return: The number of the latest comic
         :rtype: int
         """
-        return xkcd(keep_alive=True)._raw_json['num']
+        return cls(keep_alive=True)._raw_json['num']
 
     @classmethod
     def random(cls):
@@ -414,27 +483,29 @@ class xkcd(object):
             running in sequence
         :return: None
         """
-        xkcd(keep_alive=True).json
+        cls(keep_alive=True).json
         if multiprocessed:
             pool = multiprocessing.Pool(4)
-            pool.map(_load_one, cls.range())
+            pool.map(cls.load_one, cls.range())
             pool.close()
             pool.join()
         else:
             for n in cls.range():
-                xkcd(n, keep_alive=True).json
+                cls(n, keep_alive=True).json
 
-    load_one = staticmethod(_load_one)
+    @classmethod
+    def load_one(cls, n):
+        cls(n).json
 
     @classmethod
     def delete_all(cls):
-        xkcd().delete()
+        cls().delete()
         for n in cls.range():
-            xkcd(n).delete()
+            cls(n).delete()
 
     @classmethod
     def delete_one(cls, comic):
-        xkcd(comic).delete()
+        cls(comic).delete()
 
     @staticmethod
     def antigravity():

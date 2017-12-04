@@ -10,10 +10,10 @@ from setuptools import setup, find_packages
 __dir__ = os.path.abspath(os.path.dirname(__file__))
 
 # To prevent a redundant __version__, import it from the packages
-sys.path.insert(0, __dir__)
+sys.path.insert(0, os.path.join(__dir__, 'xxkcd'))
 
 try:
-    from xxkcd.metadata import (
+    from metadata import (
         __version__, __author__, __email__, __license__, __url__,
         __description__
     )
