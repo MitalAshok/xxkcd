@@ -155,7 +155,8 @@ short = builtins.int
 try:
     from operator import index
 except ImportError:
-    index = int
+    def index(o):
+        return range(o)[-1] + 1  # Use xrange to coerce to integer
 
 try:
     infinity = float('inf')
@@ -163,7 +164,7 @@ except ValueError:
     infinity = 1e999 ** 2
 neg_infinity = -infinity
 
-_probably_exists = 1921
+_probably_exists = 1951
 
 
 def dead_weaklink():
