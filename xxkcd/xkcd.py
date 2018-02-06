@@ -9,7 +9,6 @@ import functools
 import posixpath
 import multiprocessing
 import shutil
-import re
 import contextlib
 
 from objecttools import ThreadedCachedProperty
@@ -49,19 +48,9 @@ def _decode(s):
         try:
             s = bytearray(map(ord, s)).decode('utf-8')
         except (ValueError, UnicodeDecodeError):
-            return unescape(s)
+            break
     return unescape(s)
 
-
-def _load_one(comic):
-    """
-    Cache a comic so that it won't make HTTP requests and rely on the cache
-
-    :param comic: The comic to cache. Consider using `xkcd.load_all()`
-    :type comic: Union[int, xkcd, None]
-    :return: None
-    """
-    xkcd(comic, True).json
 
 # Python 2 and Python 3.6+ allow bytes JSON
 _JSON_BYTES = sys.version_info < (3,) or sys.version_info >= (3, 6)
@@ -72,23 +61,10 @@ if not _JSON_BYTES:
     _UTF_8_READER = codecs.getreader('utf-8')
 
 _MIMES = {
-    '.png': 'image/png', '.jpg': 'image/jpeg', 'gif': 'image/gif',
-    '.jpeg': 'image/jpeg'
+    'png': 'image/png', 'jpg': 'image/jpeg', 'gif': 'image/gif',
+    'jpeg': 'image/jpeg'
 }
 
-_FMT_REPLACER = re.compile(r'<<|>>|[<{>}]').sub
-_FMT_MAP = make_mapping_proxy({
-    '<<': '<',
-    '>>': '>',
-    '>': '}',
-    '<': '{',
-    '{': '{{',
-    '}': '}}'
-})
-
-
-def _fmt_replacer_function(match):
-    return _FMT_MAP[match.group(0)]
 
 ___ = 'antigravity'
 ____ = sys.modules.get
@@ -118,11 +94,10 @@ class xkcd(object):
         :rtype: xkcd
         :raises TypeError: Non-int given as comic
         """
-        if isinstance(comic, cls):
-            if keep_alive:
-                cls._keep_alive[comic._comic] = comic
-            return comic
-        comic = coerce_(comic, cls.latest)
+        if isinstance(comic, xkcd):
+            comic = comic.comic
+        else:
+            comic = coerce_(comic, cls.latest)
         self = cls._cache.get(comic, dead_weaklink)()
         if self is None:
             self = super(xkcd, cls).__new__(cls)
@@ -133,7 +108,7 @@ class xkcd(object):
         return self
 
     @staticmethod
-    def with_opener(opener, name='xkcdWithCustomOpener', qualname=None):
+    def with_opener(opener, name='xkcdWithCustomOpener', module=__name__, qualname=None):
         """
         Takes an opener and returns an xkcd subclass that makes HTTP requests with that opener.
 
@@ -173,24 +148,27 @@ class xkcd(object):
 
         :param opener: The opener, as described above.
         :param str name: The name of the subclass.
+        :param str module: The module of the new type.
         :param Optional[str] qualname: The qualified name of the class.
+          Defaults to `module + '.' + name`.
         """
         @staticmethod
         def urlopen(url):
             return contextlib.closing(opener(url))
 
         d = {
-          '__slots__': ('_comic', '__weakref__', '__dict__'),
+          '__slots__': xkcd.__slots__,
           'urlopen': urlopen,
           '_cache': {},
           '_keep_alive': {},
-          '__module__': __name__
+          '__module__': module
         }
 
-        if hasattr(type, '__qualname__'):
+        if hasattr(object, '__qualname__'):
             if qualname is None:
-                qualname = '{}.with_opener.<locals>.{}'.format(xkcd.__qualname__, name)
+                qualname = module + '.' + name
             d['__qualname__'] = qualname
+            urlopen.__qualname__ = qualname + '.urlopen'
         return type(name, (xkcd,), d)
 
     @property
@@ -200,12 +178,12 @@ class xkcd(object):
     @ThreadedCachedProperty
     def _raw_json(self):
         """Raw JSON with a possibly incorrect transcript and alt text"""
-        if self._comic == 404:
+        if self.comic == 404:
             return make_mapping_proxy(_404_mock)
-        if self._comic is None:
+        if self.comic is None:
             url = constants.xkcd.json.latest
         else:
-            url = constants.xkcd.json.for_comic(number=self._comic)
+            url = constants.xkcd.json.for_comic(number=self.comic)
         with self.urlopen(url) as http:
             if not _JSON_BYTES:
                 http = _UTF_8_READER(http)
@@ -243,7 +221,7 @@ class xkcd(object):
             'day' Optional[int]
         }
         """
-        n = self._comic
+        n = self.comic
         if n is None:
             pass
         # These comics messed up the transcripts.
@@ -434,8 +412,8 @@ class xkcd(object):
         """
         del self._raw_json
         del self.json
-        self._keep_alive.pop(self._comic, None)
-        self._cache.pop(self._comic, None)
+        self._keep_alive.pop(self.comic, None)
+        self._cache.pop(self.comic, None)
 
     @property
     def explain_xkcd(self):
@@ -443,9 +421,9 @@ class xkcd(object):
         :return: The explain xkcd wiki link for this comic
         :rtype: str
         """
-        if self._comic is None:
+        if self.comic is None:
             return constants.explain_xkcd.latest
-        return constants.explain_xkcd.for_comic(number=self._comic)
+        return constants.explain_xkcd.for_comic(number=self.comic)
 
     @property
     def url(self):
@@ -453,9 +431,9 @@ class xkcd(object):
         :return: The url for this comic
         :rtype: str
         """
-        if self._comic is None:
+        if self.comic is None:
             return constants.xkcd.latest
-        return constants.xkcd.for_comic(number=self._comic)
+        return constants.xkcd.for_comic(number=self.comic)
 
     @property
     def mobile_url(self):
@@ -463,16 +441,16 @@ class xkcd(object):
         :return: The mobile url for this comic
         :rtype: str
         """
-        if self._comic is None:
+        if self.comic is None:
             return constants.xkcd.mobile.latest
-        return constants.xkcd.mobile.for_comic(number=self._comic)
+        return constants.xkcd.mobile.for_comic(number=self.comic)
 
     @property
     def num(self):
         return self.json['num']
 
     def __repr__(self):
-        return '{type.__name__}({number})'.format(type=type(self), number=self._comic or '')
+        return '{type.__name__}({number})'.format(type=type(self), number=self.comic or '')
 
     @classmethod
     def load_all(cls, multiprocessed=False):
@@ -517,11 +495,11 @@ class xkcd(object):
         return antigravity
 
     def __iter__(self):
-        if self._comic is None:
+        if self.comic is None:
             yield self
             return
         cls = type(self)
-        for c in range(self._comic, cls.latest() + 1):
+        for c in range(self.comic, cls.latest() + 1):
             yield cls(c)
 
     def next(self):
@@ -540,22 +518,22 @@ class xkcd(object):
         :return: Previous comic
         :rtype: xkcd
         """
-        if self._comic is None:
+        if self.comic is None:
             return type(self)(self.latest() - 1)
-        if self._comic == 1:
+        if self.comic == 1:
             raise StopIteration
-        return type(self)(self._comic - 1)
+        return type(self)(self.comic - 1)
 
     def __next__(self):
-        if self._comic is None or self._comic == self.latest():
+        if self.comic is None or self.comic == self.latest():
             raise StopIteration
-        return type(self)(self._comic + 1)
+        return type(self)(self.comic + 1)
 
     def __reversed__(self):
-        if self._comic is None:
+        if self.comic is None:
             comic = self.latest()
         else:
-            comic = self._comic
+            comic = self.comic
         cls = type(self)
         for i in range(comic - 1, 0, -1):
             yield cls(i)
@@ -582,12 +560,12 @@ class xkcd(object):
 
     def __eq__(self, other):
         if isinstance(other, xkcd) and isinstance(self, xkcd):
-            if self is other or other.comic == self._comic:
+            if self is other or other.comic == self.comic:
                 return True
-            if self._comic is None:
+            if self.comic is None:
                 return self.num == other.comic
             if other.comic is None:
-                return other.num == self._comic
+                return other.num == self.comic
             return False
         return NotImplemented
 
@@ -599,26 +577,26 @@ class xkcd(object):
 
     def __lt__(self, other):
         if isinstance(other, xkcd) and isinstance(self, xkcd):
-            if self is other or self._comic == other.comic:
+            if self is other or self.comic == other.comic:
                 return False
-            if self._comic is None:
+            if self.comic is None:
                 return False
             if other.comic is None:
                 return True
-            return self._comic < other.comic
+            return self.comic < other.comic
         return NotImplemented
 
     def __le__(self, other):
         if isinstance(other, xkcd) and isinstance(self, xkcd):
-            if self is other or self._comic == other.comic:
+            if self is other or self.comic == other.comic:
                 return True
-            if self._comic is None:
+            if self.comic is None:
                 if other.comic is None:
                     return True
                 return self.num == other.comic
             if other.comic is None:
                 return True
-            return self._comic <= other.comic
+            return self.comic <= other.comic
         return NotImplemented
 
     def __ge__(self, other):
@@ -632,36 +610,3 @@ class xkcd(object):
         if le is NotImplemented:
             return NotImplemented
         return not le
-
-    def _format(self, fmt=None):
-        """Format a filename."""
-        if fmt is None or fmt == '':
-            return str(self)
-        elif not isinstance(fmt, (str, text_type)):
-            raise ValueError('format must be a str')
-        return _FMT_REPLACER(_fmt_replacer_function, fmt).format(
-            filename=self.image_filename or '',
-            image_filename=self.image_filename or '',
-            ext=self.image_ext or '',
-            image_ext=self.image_ext or '',
-            mime=self.image_mime or '',
-            image_mime=self.image_mime or '',
-            name=self.image_name,
-            image_name=self.image_name,
-            num=self.num,
-            comic=self.num,  # so it is resolved for xkcd().comic == None
-            day=self.day,
-            month=self.month,
-            year=self.year,
-            date=self.date,
-            title=self.safe_title,
-            safe_title=self.safe_title,
-            unsafe_title=self.title,
-            url=self.url,
-            image_url=self.img,
-            img=self.img
-        )
-
-    del _format  # Not implemented yet
-
-    # __format__ = format

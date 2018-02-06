@@ -21,13 +21,13 @@ except ImportError:
 
 try:
     from types import MappingProxyType
-
-    def make_mapping_proxy(mapping):
-        if isinstance(mapping, MappingProxyType):
-            return mapping
-        return MappingProxyType(mapping)
 except ImportError:
-    make_mapping_proxy = MappingProxyType = dict
+    from types import DictProxyType as MappingProxyType
+
+def make_mapping_proxy(mapping):
+    if isinstance(mapping, MappingProxyType):
+        return mapping
+    return MappingProxyType(mapping)
 
 try:
     from html import unescape  # Python 3.4+
