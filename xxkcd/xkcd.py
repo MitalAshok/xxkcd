@@ -72,6 +72,10 @@ _____ = None
 ______ = reload
 
 
+def _loader(cls, n):
+    return dict(cls(n)._raw_json)
+
+
 class xkcd(object):
     """Interface with the xkcd JSON API"""
     __slots__ = ('_comic', '__weakref__', '__dict__')
@@ -190,6 +194,7 @@ class xkcd(object):
             return make_mapping_proxy(json.load(http))
 
     _raw_json.can_delete = True
+    _raw_json.can_set = True
 
     @ThreadedCachedProperty
     def json(self):
@@ -318,17 +323,16 @@ class xkcd(object):
             raise ValueError('Comic {} does not have an image!'.format(self))
         opened = self.urlopen(self.img)
         if file is None:
+            if chunk_size is None:
+                with opened as http:
+                    return iter((b''.join(iter(http.read, b'')),))
             def _generator():
                 # Use an inner function so the function
                 # can end normally if file is not None
                 with opened as http:
-                    read = http.read
-                    if chunk_size is None:
-                        yield b''.join(iter(http.read, b''))
-                    else:
-                        read = functools.partial(read, chunk_size)
-                        for chunk in iter(read, b''):
-                            yield chunk
+                    read = functools.partial(http.read, chunk_size)
+                    for chunk in iter(read, b''):
+                        yield chunk
             return _generator()
         else:
             with opened as http:
@@ -450,7 +454,9 @@ class xkcd(object):
         return self.json['num']
 
     def __repr__(self):
-        return '{type.__name__}({number})'.format(type=type(self), number=self.comic or '')
+        n = self.comic
+        n = '' if n is None else n
+        return '{type.__name__}({number})'.format(type=type(self), number=n)
 
     @classmethod
     def load_all(cls, multiprocessed=False):
@@ -461,19 +467,33 @@ class xkcd(object):
             running in sequence
         :return: None
         """
-        cls(keep_alive=True).json
         if multiprocessed:
             pool = multiprocessing.Pool(4)
-            pool.map(cls.load_one, cls.range())
+            data = pool.map(cls._loader, cls.range())
             pool.close()
             pool.join()
+            for n, raw_json in enumerate(data, 1):
+                cls(n, keep_alive=True)._raw_json = make_mapping_proxy(raw_json)
+
         else:
             for n in cls.range():
-                cls(n, keep_alive=True).json
+                cls(n, keep_alive=True)._raw_json
+
+    if sys.version_info >= (3,):
+        _loader = classmethod(_loader)
+    else:
+        # Very hacky, but lets
+        # _loader be a "bound" classmethod
+
+        class _LoaderDescriptor(object):
+            def __get__(self, instance, owner):
+                return functools.partial(_loader, owner)
+
+        _loader = _LoaderDescriptor()
 
     @classmethod
     def load_one(cls, n):
-        cls(n).json
+        cls(n, keep_alive=True)._raw_json
 
     @classmethod
     def delete_all(cls):
@@ -496,22 +516,20 @@ class xkcd(object):
 
     def __iter__(self):
         if self.comic is None:
-            yield self
-            return
+            return iter((self,))
         cls = type(self)
-        for c in range(self.comic, cls.latest() + 1):
-            yield cls(c)
+        return map(cls, range(self.comic, cls.latest() + 1))
 
-    def next(self):
+    def next(self, keep_alive=False):
         """
         Return the next comic. If is the latest comic, raise StopIteration
 
         :return: Next comic
         :rtype: xkcd
         """
-        return self.__next__()
+        return self.__next__(keep_alive)
 
-    def back(self):
+    def back(self, keep_alive=False):
         """
         Return the previous comic. If is xkcd(1), raise StopIteration.
 
@@ -519,15 +537,15 @@ class xkcd(object):
         :rtype: xkcd
         """
         if self.comic is None:
-            return type(self)(self.latest() - 1)
+            return type(self)(self.latest() - 1, keep_alive)
         if self.comic == 1:
             raise StopIteration
-        return type(self)(self.comic - 1)
+        return type(self)(self.comic - 1, keep_alive)
 
-    def __next__(self):
+    def __next__(self, keep_alive=False):
         if self.comic is None or self.comic == self.latest():
             raise StopIteration
-        return type(self)(self.comic + 1)
+        return type(self)(self.comic + 1, keep_alive)
 
     def __reversed__(self):
         if self.comic is None:

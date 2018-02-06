@@ -22,12 +22,92 @@ except ImportError:
 try:
     from types import MappingProxyType
 except ImportError:
-    from types import DictProxyType as MappingProxyType
+    try:
+        from types import DictProxyType as MappingProxyType
+    except ImportError:
+        MappingProxyType = None
+
+try:
+    MappingProxyType({})
+except:
+    MappingProxyType = None
+
+if MappingProxyType is None:
+    class MappingProxyType(object):
+        __slots__ = ('_m')
+
+        def __init__(self, mapping):
+            self._m = mapping
+
+        def __cmp__(self, other):
+            return cmp(self._m, other)
+
+        def __contains__(self, key):
+            return key in self._m
+
+        def __eq__(self, other):
+            return self._m == other
+
+        def __ge__(self, other):
+            return self._m > other
+
+        def __getitem__(self, key):
+            return self._m[key]
+
+        def __gt__(self, other):
+            return self._m > other
+
+        def __iter__(self):
+            return iter(self._m)
+
+        def __le__(self, other):
+            return self._m <= other
+
+        def __len__(self):
+            return len(self._m)
+
+        def __lt__(self, other):
+            return self._m < other
+
+        def __ne__(self, other):
+            return self.m != other
+
+        def __repr__(self):
+            return '{}({!r})'.format(type(self).__name__, self._m)
+
+        def copy(self):
+            return self._m.copy()
+
+        def get(self, key, default=None):
+            return self._m.get(key, default)
+
+        def has_key(self, key):
+            return self._m.has_key(key)
+
+        def items(self):
+            return self._m.items()
+
+        def iteritems(self):
+            return self._m.iteritems()
+
+        def iterkeys(self):
+            return self._m.iterkeys()
+
+        def itervalues(self):
+            return self._m.itervalues()
+
+        def keys(self):
+            return self._m.keys()
+
+        def values(self):
+            return self._m.values()
+
 
 def make_mapping_proxy(mapping):
     if isinstance(mapping, MappingProxyType):
         return mapping
     return MappingProxyType(mapping)
+
 
 try:
     from html import unescape  # Python 3.4+

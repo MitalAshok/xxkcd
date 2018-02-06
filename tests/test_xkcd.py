@@ -17,6 +17,7 @@ expect = {
 
 }
 
+
 class Testxkcd(unittest.TestCase):
     def test_url(self):
         self.assertEqual(xkcd().url, 'https://xkcd.com', 'Incorrect "latest" url')
@@ -41,4 +42,29 @@ class Testxkcd(unittest.TestCase):
     def test_link(self):
         self.assertEqual(xkcd(1723).link, expect['1723_link'], 'Incorrect link')
 
+    def test_load_all(self):
+        # Can't get mock to work in Python 2.
+        # Just manually setting methods and setting them back.
+        i = None
+        def should_not_call(*_, **__):
+            if i is None:
+                raise RuntimeError('should_not_call should not have been called yet. How is that even possible?')
+            raise AssertionError('xkcd.urlopen called for {}'.format(i))
 
+        xkcd_urlopen = staticmethod(xkcd.urlopen)
+        xkcd_range = xkcd.range
+
+        xkcd.delete_all()
+
+        try:
+            # Just test with first few comics for test.
+            xkcd.range = classmethod(lambda *_, **__: range(1, 6))
+
+            xkcd.load_all(True)
+
+            xkcd.urlopen = should_not_call
+            for i in xkcd.range()[:-1]:
+                xkcd(i).json
+        finally:
+            xkcd.urlopen = xkcd_urlopen
+            xkcd.range = xkcd_range
