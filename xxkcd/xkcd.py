@@ -112,9 +112,14 @@ class xkcd(object):
         return self
 
     @staticmethod
-    def with_opener(opener, name='xkcdWithCustomOpener', module=__name__, qualname=None):
+    def with_opener(opener, name='xkcdWithCustomOpener', module=__name__, qualname=None, metaclass=type):
         """
         Takes an opener and returns an xkcd subclass that makes HTTP requests with that opener.
+
+        Typical usage:
+
+            # The __name__ ensures that the new class is picklable.
+            xkcdA = xkcd.with_opener(opener, 'xkcdA', __name__)
 
         The opener is a callable object (e.g. a type). When called with a `str` for the
         url, it should return an object with the following methods:
@@ -140,7 +145,7 @@ class xkcd(object):
                     return cls._session.get(url)
 
                 def __init__(self, url):
-                    self.response = self.get(self._url)
+                    self.response = self.get(url)
 
                 def read(self, n=None):
                     if n is None:
@@ -155,6 +160,9 @@ class xkcd(object):
         :param str module: The module of the new type.
         :param Optional[str] qualname: The qualified name of the class.
           Defaults to `module + '.' + name`.
+        :param type metaclass: The metaclass of the new object.
+          The new class is constructed as `metaclass(name, (xkcd,), <class __dict__>)`.
+        :return: A new subclass of `xkcd` with a custom `.urlopen` staticmethod.
         """
         @staticmethod
         def urlopen(url):
@@ -173,7 +181,7 @@ class xkcd(object):
                 qualname = module + '.' + name
             d['__qualname__'] = qualname
             urlopen.__qualname__ = qualname + '.urlopen'
-        return type(name, (xkcd,), d)
+        return metaclass(name, (xkcd,), d)
 
     @property
     def comic(self):
@@ -469,7 +477,7 @@ class xkcd(object):
         """
         if multiprocessed:
             pool = multiprocessing.Pool(4)
-            data = pool.map(cls._loader, cls.range())
+            data = pool.map(cls._get_loader(), cls.range())
             pool.close()
             pool.join()
             for n, raw_json in enumerate(data, 1):
@@ -479,17 +487,17 @@ class xkcd(object):
             for n in cls.range():
                 cls(n, keep_alive=True)._raw_json
 
+    # Python 2 doesn't allow pickling classmethod for multiprocessing.
     if sys.version_info >= (3,):
         _loader = classmethod(_loader)
+
+        @classmethod
+        def _get_loader(cls):
+            return cls._loader
     else:
-        # Very hacky, but lets
-        # _loader be a "bound" classmethod
-
-        class _LoaderDescriptor(object):
-            def __get__(self, instance, owner):
-                return functools.partial(_loader, owner)
-
-        _loader = _LoaderDescriptor()
+        @classmethod
+        def _get_loader(cls):
+            return functools.partial(_loader, cls)
 
     @classmethod
     def load_one(cls, n):

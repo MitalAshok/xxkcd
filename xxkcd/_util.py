@@ -28,7 +28,7 @@ except ImportError:
         MappingProxyType = None
 
 try:
-    MappingProxyType({})
+    MappingProxyType({'a': None})['a']
 except:
     MappingProxyType = None
 
