@@ -164,14 +164,12 @@ except ValueError:
     infinity = 1e999 ** 2
 neg_infinity = -infinity
 
-_probably_exists = 1951
-
 
 def dead_weaklink():
     return None
 
 
-def coerce_(x, max_fn):
+def coerce_(x, max_fn, last_latest):
     if x is None:
         return x
     try:
@@ -195,7 +193,7 @@ def coerce_(x, max_fn):
             if x <= 0:
                 return 1
             return x
-        if x <= _probably_exists:
+        if x <= last_latest:
             return x
         return min(x, max_fn())
     raise TypeError('comic must be an integer')

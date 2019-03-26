@@ -85,7 +85,7 @@ class WhatIf(object):
             if keep_alive:
                 cls._keep_alive[article.article] = article
             return article
-        article = coerce_(article, cls.latest)
+        article = coerce_(article, cls.latest, 157)
         self = cls._cache.get(article, dead_weaklink)()
         if self is None:
             self = super(WhatIf, cls).__new__(cls)
@@ -166,7 +166,7 @@ class WhatIf(object):
 
     @ThreadedCachedProperty
     def _article_node(self):
-        return WhatIf()._article_tree.find(lambda a: a.cls == 'entry')
+        return self._article_tree.find(lambda a: a.cls == 'entry')
 
     _article_node.can_delete = True
 
@@ -291,3 +291,8 @@ class WhatIf(object):
         if le is NotImplemented:
             return NotImplemented
         return not le
+
+    def __repr__(self):
+        n = self.article
+        n = '' if n is None else n
+        return '{type.__name__}({article})'.format(type=type(self), article=n)

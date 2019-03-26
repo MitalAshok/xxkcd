@@ -15,11 +15,11 @@ from objecttools import ThreadedCachedProperty
 
 from xxkcd._util import (
     urlopen, reload, unescape, map, str_is_bytes, make_mapping_proxy,
-    range, short, dead_weaklink, coerce_, text_type
+    range, short, dead_weaklink, coerce_, index
 )
 from xxkcd import constants
 
-__all__ = ('xkcd',)
+__all__ = ('xkcd', 'load_xkcd_cache')
 
 _404_mock = make_mapping_proxy({
     'month': 4, 'num': 404, 'link': '', 'year': 2008, 'news': u'',
@@ -76,6 +76,9 @@ def _loader(cls, n):
     return dict(cls(n)._raw_json)
 
 
+_LAST_LATEST = 2128
+
+
 class xkcd(object):
     """Interface with the xkcd JSON API"""
     __slots__ = ('_comic', '__weakref__', '__dict__')
@@ -101,7 +104,7 @@ class xkcd(object):
         if isinstance(comic, xkcd):
             comic = comic.comic
         else:
-            comic = coerce_(comic, cls.latest)
+            comic = coerce_(comic, cls.latest, _LAST_LATEST)
         self = cls._cache.get(comic, dead_weaklink)()
         if self is None:
             self = super(xkcd, cls).__new__(cls)
@@ -250,7 +253,7 @@ class xkcd(object):
                 other_json[key.encode('ascii')] = self._raw_json[key]
         else:
             other_json = dict(self._raw_json)
-        if n is not None and n < self.latest() - 3:
+        if n is not None and (n < _LAST_LATEST - 3 or n < self.latest() - 3):
             other_json['transcript'] = _decode(xkcd(n)._raw_json['transcript'])
         else:
             other_json['transcript'] = _decode(other_json['transcript'])
@@ -467,25 +470,26 @@ class xkcd(object):
         return '{type.__name__}({number})'.format(type=type(self), number=n)
 
     @classmethod
-    def load_all(cls, multiprocessed=False):
+    def load_all(cls, processes=None):
         """
         Load all the comics into the cache. Note: Takes a lot of time.
 
-        :param bool multiprocessed: Use multiprocessing.Pool instead of
-            running in sequence
+        :param Optional[int] multiprocessed: Number of processes to use
+            in parallel. If `None`, use only the current process.
         :return: None
         """
-        if multiprocessed:
-            pool = multiprocessing.Pool(4)
-            data = pool.map(cls._get_loader(), cls.range())
+        if processes is not None:
+            pool = multiprocessing.Pool(processes)
+            data = pool.map(cls._get_loader(), (i for i in cls.range() if not cls._raw_json.is_cached(cls(i, keep_alive=True))))
             pool.close()
             pool.join()
             for n, raw_json in enumerate(data, 1):
                 cls(n, keep_alive=True)._raw_json = make_mapping_proxy(raw_json)
-
         else:
             for n in cls.range():
                 cls(n, keep_alive=True)._raw_json
+        # Load last comic
+        cls(keep_alive=True)._raw_json
 
     # Python 2 doesn't allow pickling classmethod for multiprocessing.
     if sys.version_info >= (3,):
@@ -505,13 +509,19 @@ class xkcd(object):
 
     @classmethod
     def delete_all(cls):
-        cls().delete()
-        for n in cls.range():
-            cls(n).delete()
+        cls._keep_alive.clear()
+        for comic in cls._cache.values():
+            comic = comic()
+            if comic is not None:
+                comic.delete()
 
     @classmethod
     def delete_one(cls, comic):
-        cls(comic).delete()
+        comic = index(comic)
+        cls._keep_alive.pop(comic, None)
+        comic = cls._cache.get(comic, dead_weaklink)()
+        if comic is not None:
+            comic.delete()
 
     @staticmethod
     def antigravity():
@@ -572,7 +582,7 @@ class xkcd(object):
         Use negative numbers to specify from the end.
 
         :param int from_: The comic to start from. Defaults to the first.
-        :param Optional[int] to_: The comic to end by (exclusive). Defaults to last + 1.
+        :param Optional[int] to: The comic to end by (exclusive). Defaults to last + 1.
         :param int step: The step amount. Defaults to one.
         :return: A range over the requested comics.
         """
@@ -636,3 +646,14 @@ class xkcd(object):
         if le is NotImplemented:
             return NotImplemented
         return not le
+
+
+def load_xkcd_cache():
+    """
+    Loads a pre-fetched cache of the xkcd API. Currently for 1 through 2128.
+    Might be a bit stale. Will still make HTTP requests for newer comics.
+    """
+    from xxkcd._cache import cache
+
+    for k, v in getattr(dict, 'iteritems', dict.items)(cache):
+        xkcd(k, keep_alive=True)._raw_json = make_mapping_proxy(v)
