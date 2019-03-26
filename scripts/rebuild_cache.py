@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import sys
 import os
 import multiprocessing
@@ -8,6 +10,10 @@ import xxkcd
 
 def get_raw_json(n):
     return dict(xxkcd.xkcd(n)._raw_json)
+
+
+PREFIX = '# coding: utf-8\n\nfrom __future__ import unicode_literals\n\ncache = '
+SUFFIX = '\n'
 
 
 def main(argv=None):
@@ -33,9 +39,17 @@ def main(argv=None):
 
     raw_json_dict = dict(zip(range, raw_json_list))
 
-    with open(args.file, 'w') as f:
-        f.write('cache = ')
-        f.write(repr(raw_json_dict))
+    if args.file != '-':
+        with open(args.file, 'w', encoding='utf-8') as f:
+            f.write(PREFIX)
+            f.write(repr(raw_json_dict))
+            f.write(SUFFIX)
+    else:
+        # Don't want to close stdin
+        print(end=PREFIX)
+        print(end=repr(raw_json_dict))
+        print(end=SUFFIX)
+
     return 0
 
 

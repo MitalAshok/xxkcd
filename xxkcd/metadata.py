@@ -3,7 +3,7 @@
 __author__ = 'Mital Ashok'
 __credits__ = ['Mital Ashok']
 __license__ = 'MIT'
-__version__ = '1.3.5'
+__version__ = '1.4.0'
 __maintainer__ = 'Mital Ashok'
 __author_email__ = __email__ = 'mital.vaja@googlemail.com'
 __status__ = 'Production'

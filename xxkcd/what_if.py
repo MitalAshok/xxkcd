@@ -72,6 +72,9 @@ class Archive(object):
         return datetime.date(year, month + 1, day)
 
 
+_LAST_LATEST = 157
+
+
 class WhatIf(object):
     __slots__ = ('_article', '__weakref__', '__dict__')
 
@@ -85,7 +88,7 @@ class WhatIf(object):
             if keep_alive:
                 cls._keep_alive[article.article] = article
             return article
-        article = coerce_(article, cls.latest, 157)
+        article = coerce_(article, cls.latest, _LAST_LATEST)
         self = cls._cache.get(article, dead_weaklink)()
         if self is None:
             self = super(WhatIf, cls).__new__(cls)
@@ -221,7 +224,7 @@ class WhatIf(object):
         return type(self)(self.article - 1)
 
     def __next__(self):
-        if self.article is None or self.article == self.latest():
+        if self.article is None or (self.article >= _LAST_LATEST and self.article == self.latest()):
             raise StopIteration
         return type(self)(self.article + 1)
 
@@ -230,8 +233,7 @@ class WhatIf(object):
             comic = self.latest()
         else:
             comic = self.article
-        for i in range(comic - 1, 0, -1):
-            yield type(self)(i)
+        return iter(map(type(self), range(comic - 1, 0, -1)))
 
     @classmethod
     def range(cls, from_=1, to=None, step=1):

@@ -29,14 +29,14 @@ _404_mock = make_mapping_proxy({
 
 
 def _decode(s):
-    """
+    u"""
     Decodes the incorrect encoding used in the xkcd JSON api.
 
     All of the fields of xkcd comics that use non-ascii characters incorrectly
     encode binary UTF-8 as escaped UTF-8.
 
     For example, 'é' -> 0xC3 0xA9 -> '\\u00c3\\u00a9' in the JSON, which
-    actually encodes 'Ã©'
+    actually encodes 'Ã©' (0xC3 0x83 0xC2 0xA9 in UTF-8)
 
     This is sometimes done multiple times, like in xkcd(124).
 
@@ -46,7 +46,9 @@ def _decode(s):
     """
     for _ in range(10):
         try:
-            s = bytearray(map(ord, s)).decode('utf-8')
+            old, s = s, s.encode('latin-1').decode('utf-8')
+            if old == s:
+                break
         except (ValueError, UnicodeDecodeError):
             break
     return unescape(s)
@@ -113,6 +115,12 @@ class xkcd(object):
         if keep_alive:
             cls._keep_alive[comic] = self
         return self
+
+    def __getnewargs__(self):
+        return self.comic,
+
+    def __reduce__(self):
+        return type(self), (self.comic,)
 
     @staticmethod
     def with_opener(opener, name='xkcdWithCustomOpener', module=__name__, qualname=None, metaclass=type):
@@ -249,11 +257,12 @@ class xkcd(object):
             n += 2
         if str_is_bytes:
             other_json = {}
-            for key in self._raw_json:
-                other_json[key.encode('ascii')] = self._raw_json[key]
+            raw_json = self._raw_json
+            for key in raw_json:
+                other_json[key.encode('ascii')] = raw_json[key]
         else:
             other_json = dict(self._raw_json)
-        if n is not None and (n < _LAST_LATEST - 3 or n < self.latest() - 3):
+        if n is not None and n != self.comic and (n < _LAST_LATEST - 3 or n < self.latest() - 3):
             other_json['transcript'] = _decode(xkcd(n)._raw_json['transcript'])
         else:
             other_json['transcript'] = _decode(other_json['transcript'])
@@ -337,6 +346,7 @@ class xkcd(object):
             if chunk_size is None:
                 with opened as http:
                     return iter((b''.join(iter(http.read, b'')),))
+
             def _generator():
                 # Use an inner function so the function
                 # can end normally if file is not None
@@ -561,7 +571,7 @@ class xkcd(object):
         return type(self)(self.comic - 1, keep_alive)
 
     def __next__(self, keep_alive=False):
-        if self.comic is None or self.comic == self.latest():
+        if self.comic is None or (self.comic >= _LAST_LATEST and self.comic == self.latest()):
             raise StopIteration
         return type(self)(self.comic + 1, keep_alive)
 
@@ -571,8 +581,7 @@ class xkcd(object):
         else:
             comic = self.comic
         cls = type(self)
-        for i in range(comic - 1, 0, -1):
-            yield cls(i)
+        return iter(map(cls, range(comic - 1, 0, -1)))
 
     @classmethod
     def range(cls, from_=1, to=None, step=1):

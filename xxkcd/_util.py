@@ -184,7 +184,7 @@ def coerce_(x, max_fn, last_latest):
     else:
         try:
             x = short(x)
-        except:
+        except Exception:
             pass
         if x == 0:
             return None
